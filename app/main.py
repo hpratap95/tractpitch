@@ -1,8 +1,10 @@
 import logging
 
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 
-from app.api.routes import grants, health
+from app.api.routes import grants, health, geocode
 from app.core.config import get_settings
 
 settings = get_settings()
@@ -18,5 +20,13 @@ app = FastAPI(
     version="0.1.0",
 )
 
+app.mount("/static", StaticFiles(directory="app/static"), name="static")
+
 app.include_router(health.router, tags=["Health"])
 app.include_router(grants.router, prefix="/api/v1/grants", tags=["Grants"])
+app.include_router(geocode.router, prefix="/api/v1", tags=["Geocode"])
+
+
+@app.get("/", include_in_schema=False)
+def index():
+    return FileResponse("app/templates/index.html")

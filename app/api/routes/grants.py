@@ -63,7 +63,8 @@ def _fetch_demographics(db: Session, geoid: str, vintage: int) -> dict:
             d.pct_black_alone,
             d.pct_hispanic,
             d.pct_asian_alone,
-            ct.name AS tract_name
+            ct.name AS tract_name,
+            ct.state_fips
         FROM demo.tract_demographics d
         JOIN geo.census_tract ct ON ct.geoid = d.geoid
         WHERE d.geoid = :geoid AND d.acs_vintage = :vintage
@@ -99,6 +100,8 @@ def _screen_grants(db: Session, demo: dict) -> list[dict]:
         "pct_bachelors":      demo.get("pct_bachelors_plus") or 100,
     }
 
+    params["tract_state_fips"] = demo.get("state_fips")
+
     rows = db.execute(text("""
         SELECT
             id::text,
@@ -118,6 +121,7 @@ def _screen_grants(db: Session, demo: dict) -> list[dict]:
             max_pct_bachelors
         FROM grants.federal_grants
         WHERE is_active = TRUE
+          AND (state_fips IS NULL OR state_fips = :tract_state_fips)
           AND (min_poverty_rate      IS NULL OR :poverty_rate     >= min_poverty_rate)
           AND (max_median_hh_income  IS NULL OR :median_hh_income <= max_median_hh_income)
           AND (min_pct_minority      IS NULL OR :pct_minority     >= min_pct_minority)

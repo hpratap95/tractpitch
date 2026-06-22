@@ -45,7 +45,7 @@ docker compose up --build
 
 **Open:** [http://localhost:8001](http://localhost:8001)
 
-TractPitch shares the Locivus PostGIS database (`argus` on port 5432). It does not run its own database.
+TractPitch runs its own PostGIS database (`tractpitch` on port 5433), separate from Locivus.
 
 ---
 

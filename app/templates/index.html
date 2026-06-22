@@ -1,0 +1,827 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TractPitch — Grant Screener</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --navy:       #0f172a;
+      --navy-light: #1e293b;
+      --blue:       #3b82f6;
+      --blue-dark:  #2563eb;
+      --green:      #16a34a;
+      --green-bg:   #f0fdf4;
+      --green-text: #15803d;
+      --red:        #dc2626;
+      --gray-50:    #f8fafc;
+      --gray-100:   #f1f5f9;
+      --gray-200:   #e2e8f0;
+      --gray-400:   #94a3b8;
+      --gray-600:   #475569;
+      --gray-700:   #334155;
+      --gray-900:   #0f172a;
+      --sidebar-w:  240px;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background: var(--gray-50);
+      color: var(--gray-900);
+      display: flex;
+      min-height: 100vh;
+    }
+
+    /* ── Sidebar ─────────────────────────────────────── */
+    .sidebar {
+      width: var(--sidebar-w);
+      background: var(--navy);
+      display: flex;
+      flex-direction: column;
+      padding: 24px 0;
+      position: fixed;
+      top: 0; left: 0; bottom: 0;
+      z-index: 10;
+    }
+
+    .sidebar-logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 0 20px 28px;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+    }
+
+    .sidebar-logo svg {
+      flex-shrink: 0;
+      color: var(--blue);
+    }
+
+    .sidebar-logo-text {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .sidebar-logo-name {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: #fff;
+      letter-spacing: -0.01em;
+    }
+
+    .sidebar-logo-sub {
+      font-size: 0.7rem;
+      color: var(--gray-400);
+      margin-top: 1px;
+    }
+
+    .sidebar-nav {
+      padding: 20px 12px 0;
+    }
+
+    .sidebar-nav-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      border-radius: 8px;
+      color: #fff;
+      font-size: 0.875rem;
+      font-weight: 500;
+      background: rgba(59, 130, 246, 0.15);
+      cursor: pointer;
+    }
+
+    .sidebar-nav-item svg {
+      color: var(--blue);
+    }
+
+    /* ── Main content ─────────────────────────────────── */
+    .main {
+      margin-left: var(--sidebar-w);
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .topbar {
+      background: #fff;
+      border-bottom: 1px solid var(--gray-200);
+      padding: 20px 40px;
+    }
+
+    .topbar h1 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--gray-900);
+    }
+
+    .topbar p {
+      margin-top: 4px;
+      font-size: 0.9rem;
+      color: var(--gray-600);
+    }
+
+    .content {
+      padding: 32px 40px;
+      max-width: 900px;
+    }
+
+    /* ── Search form ──────────────────────────────────── */
+    .search-card {
+      background: #fff;
+      border: 1px solid var(--gray-200);
+      border-radius: 12px;
+      padding: 24px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    }
+
+    .address-grid {
+      display: grid;
+      grid-template-columns: 2fr 1.5fr 0.6fr 0.8fr;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    .field-group {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .field-label {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--gray-600);
+      letter-spacing: 0.02em;
+    }
+
+    .search-action-row {
+      display: flex;
+      justify-content: flex-end;
+    }
+
+    .search-input {
+      width: 100%;
+      padding: 11px 16px;
+      font-size: 0.9375rem;
+      border: 1.5px solid var(--gray-200);
+      border-radius: 8px;
+      outline: none;
+      color: var(--gray-900);
+      transition: border-color 0.15s;
+    }
+
+    .search-input:focus {
+      border-color: var(--blue);
+      box-shadow: 0 0 0 3px rgba(59,130,246,0.12);
+    }
+
+    .search-input::placeholder { color: var(--gray-400); }
+
+    .btn-primary {
+      padding: 11px 22px;
+      background: var(--blue);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 0.9375rem;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background 0.15s;
+    }
+
+    .btn-primary:hover { background: var(--blue-dark); }
+    .btn-primary:disabled { background: var(--gray-400); cursor: not-allowed; }
+
+    /* ── Status / error messages ──────────────────────── */
+    .status-msg {
+      margin-top: 16px;
+      padding: 12px 16px;
+      border-radius: 8px;
+      font-size: 0.875rem;
+    }
+
+    .status-msg.loading {
+      background: var(--gray-100);
+      color: var(--gray-700);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .status-msg.error {
+      background: #fef2f2;
+      color: var(--red);
+      border: 1px solid #fecaca;
+    }
+
+    .spinner {
+      width: 16px; height: 16px;
+      border: 2.5px solid var(--gray-400);
+      border-top-color: var(--blue);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      flex-shrink: 0;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Results ──────────────────────────────────────── */
+    .results { margin-top: 28px; }
+
+    .section-label {
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--gray-400);
+      margin-bottom: 10px;
+    }
+
+    /* Tract profile card */
+    .profile-card {
+      background: #fff;
+      border: 1px solid var(--gray-200);
+      border-radius: 12px;
+      padding: 20px 24px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+      margin-bottom: 28px;
+    }
+
+    .profile-card-header {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+
+    .profile-card-title {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--gray-900);
+    }
+
+    .profile-card-geoid {
+      font-size: 0.78rem;
+      color: var(--gray-400);
+      font-family: monospace;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      gap: 12px;
+    }
+
+    .stat-item {
+      background: var(--gray-50);
+      border: 1px solid var(--gray-200);
+      border-radius: 8px;
+      padding: 12px 14px;
+    }
+
+    .stat-label {
+      font-size: 0.72rem;
+      color: var(--gray-600);
+      font-weight: 500;
+      margin-bottom: 4px;
+    }
+
+    .stat-value {
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: var(--gray-900);
+    }
+
+    /* Grants list */
+    .grants-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 14px;
+    }
+
+    .grants-count-badge {
+      background: var(--blue);
+      color: #fff;
+      font-size: 0.75rem;
+      font-weight: 700;
+      padding: 3px 10px;
+      border-radius: 999px;
+    }
+
+    .btn-pdf {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 9px 18px;
+      background: var(--navy);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 0.875rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .btn-pdf:hover { background: var(--navy-light); }
+    .btn-pdf:disabled { background: var(--gray-400); cursor: not-allowed; }
+
+    .grant-card {
+      background: #fff;
+      border: 1px solid var(--gray-200);
+      border-radius: 12px;
+      padding: 20px 24px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+      margin-bottom: 12px;
+    }
+
+    .grant-card-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 6px;
+    }
+
+    .grant-program-name {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--gray-900);
+      line-height: 1.3;
+    }
+
+    .grant-badges {
+      display: flex;
+      gap: 6px;
+      flex-shrink: 0;
+      align-items: center;
+    }
+
+    .badge {
+      font-size: 0.7rem;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .badge-federal { background: #dbeafe; color: #1d4ed8; }
+    .badge-state   { background: #dcfce7; color: #166534; }
+    .badge-local   { background: #fef9c3; color: #854d0e; }
+
+    .grant-agency {
+      font-size: 0.8125rem;
+      color: var(--gray-600);
+      margin-bottom: 10px;
+    }
+
+    .grant-desc {
+      font-size: 0.875rem;
+      color: var(--gray-700);
+      line-height: 1.55;
+      margin-bottom: 12px;
+    }
+
+    .grant-meta {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+      margin-bottom: 12px;
+    }
+
+    .grant-award {
+      font-size: 0.8125rem;
+      font-weight: 600;
+      color: var(--gray-700);
+    }
+
+    .grant-link {
+      font-size: 0.8125rem;
+      color: var(--blue);
+      text-decoration: none;
+      font-weight: 500;
+    }
+
+    .grant-link:hover { text-decoration: underline; }
+
+    .match-reasons {
+      background: var(--green-bg);
+      border: 1px solid #bbf7d0;
+      border-radius: 7px;
+      padding: 10px 14px;
+    }
+
+    .match-reasons-label {
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--green-text);
+      margin-bottom: 6px;
+    }
+
+    .match-reasons ul {
+      list-style: none;
+      padding: 0;
+    }
+
+    .match-reasons li {
+      font-size: 0.8125rem;
+      color: var(--green-text);
+      padding: 2px 0;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .match-reasons li::before {
+      content: "✓";
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+
+    /* Empty state */
+    .empty-state {
+      background: #fff;
+      border: 1px solid var(--gray-200);
+      border-radius: 12px;
+      padding: 48px 24px;
+      text-align: center;
+      color: var(--gray-600);
+    }
+
+    .empty-state svg {
+      margin-bottom: 14px;
+      color: var(--gray-400);
+    }
+
+    .empty-state p {
+      font-size: 0.9375rem;
+    }
+
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+
+<!-- Sidebar -->
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+      <polyline points="14 2 14 8 20 8"/>
+      <line x1="16" y1="13" x2="8" y2="13"/>
+      <line x1="16" y1="17" x2="8" y2="17"/>
+      <polyline points="10 9 9 9 8 9"/>
+    </svg>
+    <div class="sidebar-logo-text">
+      <span class="sidebar-logo-name">TractPitch</span>
+      <span class="sidebar-logo-sub">Grant Eligibility Screener</span>
+    </div>
+  </div>
+  <nav class="sidebar-nav">
+    <div class="sidebar-nav-item">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+      </svg>
+      Grant Screener
+    </div>
+  </nav>
+</aside>
+
+<!-- Main -->
+<main class="main">
+  <div class="topbar">
+    <h1>Grant Screener</h1>
+    <p>Enter any address to see which federal and state grants that census tract qualifies for.</p>
+  </div>
+
+  <div class="content">
+
+    <!-- Search form -->
+    <div class="search-card">
+      <div class="address-grid">
+        <div class="field-group field-street">
+          <label class="field-label" for="input-street">Street Address</label>
+          <input id="input-street" class="search-input" type="text"
+            placeholder="123 Main St" autocomplete="address-line1" />
+        </div>
+        <div class="field-group field-city">
+          <label class="field-label" for="input-city">City</label>
+          <input id="input-city" class="search-input" type="text"
+            placeholder="Davenport" autocomplete="address-level2" />
+        </div>
+        <div class="field-group field-state">
+          <label class="field-label" for="input-state">State</label>
+          <input id="input-state" class="search-input" type="text"
+            placeholder="IA" maxlength="2" autocomplete="address-level1" />
+        </div>
+        <div class="field-group field-zip">
+          <label class="field-label" for="input-zip">ZIP Code</label>
+          <input id="input-zip" class="search-input" type="text"
+            placeholder="52801" maxlength="5" autocomplete="postal-code" />
+        </div>
+      </div>
+      <div class="search-action-row">
+        <button id="screen-btn" class="btn-primary" onclick="runScreen()">Screen Grants</button>
+      </div>
+      <div id="status-area"></div>
+    </div>
+
+    <!-- Results (hidden until populated) -->
+    <div id="results" class="results hidden"></div>
+
+  </div>
+</main>
+
+<script>
+  // ─── State ────────────────────────────────────────────────────────────────
+  let lastGeoid = null;
+  let lastVintage = 2022;
+
+  // ─── Helpers ──────────────────────────────────────────────────────────────
+  function fmt(n, decimals = 1) {
+    if (n == null) return "N/A";
+    return typeof n === "number" ? n.toFixed(decimals) : n;
+  }
+
+  function fmtCurrency(n) {
+    if (n == null) return "N/A";
+    return "$" + Number(n).toLocaleString();
+  }
+
+  function fmtNumber(n) {
+    if (n == null) return "N/A";
+    return Number(n).toLocaleString();
+  }
+
+  function setStatus(type, html) {
+    const el = document.getElementById("status-area");
+    if (!type) { el.innerHTML = ""; return; }
+    el.innerHTML = `<div class="status-msg ${type}">${html}</div>`;
+  }
+
+  function setLoading(text) {
+    setStatus("loading", `<div class="spinner"></div><span>${text}</span>`);
+  }
+
+  function setError(msg) {
+    setStatus("error", `<strong>Error:</strong> ${msg}`);
+  }
+
+  function setBusy(busy) {
+    document.getElementById("screen-btn").disabled = busy;
+    ["input-street","input-city","input-state","input-zip"].forEach(id => {
+      document.getElementById(id).disabled = busy;
+    });
+    const pdfBtn = document.getElementById("pdf-btn");
+    if (pdfBtn) pdfBtn.disabled = busy;
+  }
+
+  function buildAddress() {
+    const street = document.getElementById("input-street").value.trim();
+    const city   = document.getElementById("input-city").value.trim();
+    const state  = document.getElementById("input-state").value.trim();
+    const zip    = document.getElementById("input-zip").value.trim();
+    return [street, city, state, zip].filter(Boolean).join(", ");
+  }
+
+  // ─── Geocoder ─────────────────────────────────────────────────────────────
+  async function geocodeAddress(address) {
+    const resp = await fetch(`/api/v1/geocode?address=${encodeURIComponent(address)}`);
+    const data = await resp.json();
+    if (!resp.ok) throw new Error(data.detail || `Geocoder error ${resp.status}`);
+    return { lat: data.latitude, lon: data.longitude };
+  }
+
+  // ─── Screen API ───────────────────────────────────────────────────────────
+  async function screenGrants(lat, lon, vintage = 2022, format = "json") {
+    const body = { latitude: lat, longitude: lon, vintage, format };
+    const resp = await fetch("/api/v1/grants/screen", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (format === "pdf") {
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({}));
+        throw new Error(err.detail || `API error ${resp.status}`);
+      }
+      return resp; // raw response for blob
+    }
+    const data = await resp.json();
+    if (!resp.ok) throw new Error(data.detail || `API error ${resp.status}`);
+    return data;
+  }
+
+  // ─── PDF download ─────────────────────────────────────────────────────────
+  async function downloadPdf() {
+    if (!lastGeoid) return;
+    const pdfBtn = document.getElementById("pdf-btn");
+    pdfBtn.disabled = true;
+    pdfBtn.textContent = "Generating…";
+    try {
+      const { lat, lon } = await geocodeAddress(buildAddress());
+      const resp = await screenGrants(lat, lon, lastVintage, "pdf");
+      const blob = await resp.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `grants_${lastGeoid}_${lastVintage}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      alert("PDF download failed: " + e.message);
+    } finally {
+      pdfBtn.disabled = false;
+      pdfBtn.innerHTML = `
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <polyline points="7 10 12 15 17 10"/>
+          <line x1="12" y1="15" x2="12" y2="3"/>
+        </svg>
+        Download PDF Report`;
+    }
+  }
+
+  // ─── Render ───────────────────────────────────────────────────────────────
+  function grantTypeBadge(type) {
+    const t = (type || "").toUpperCase();
+    if (t === "FEDERAL") return `<span class="badge badge-federal">Federal</span>`;
+    if (t === "STATE")   return `<span class="badge badge-state">State</span>`;
+    return `<span class="badge badge-local">${type || "Other"}</span>`;
+  }
+
+  function renderProfile(geoid, tractName, vintage, profile) {
+    return `
+      <div class="section-label">Tract Profile</div>
+      <div class="profile-card">
+        <div class="profile-card-header">
+          <span class="profile-card-title">${tractName || "Census Tract"}</span>
+          <span class="profile-card-geoid">GEOID ${geoid} &middot; ACS ${vintage}</span>
+        </div>
+        <div class="stats-grid">
+          <div class="stat-item">
+            <div class="stat-label">Population</div>
+            <div class="stat-value">${fmtNumber(profile.total_population)}</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-label">Median HH Income</div>
+            <div class="stat-value">${fmtCurrency(profile.median_hh_income)}</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-label">Poverty Rate</div>
+            <div class="stat-value">${fmt(profile.poverty_rate)}%</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-label">Minority Pop.</div>
+            <div class="stat-value">${fmt(profile.pct_minority)}%</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-label">Renter-Occupied</div>
+            <div class="stat-value">${fmt(profile.pct_renter)}%</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-label">Unemployment</div>
+            <div class="stat-value">${profile.unemployment_rate != null ? fmt(profile.unemployment_rate) + "%" : "N/A"}</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-label">Bachelor's Degree+</div>
+            <div class="stat-value">${fmt(profile.pct_bachelors)}%</div>
+          </div>
+        </div>
+      </div>`;
+  }
+
+  function renderGrant(g) {
+    const reasons = (g.matched_criteria || []).map(r => `<li>${r}</li>`).join("");
+    const matchBlock = reasons ? `
+      <div class="match-reasons">
+        <div class="match-reasons-label">Matched Criteria</div>
+        <ul>${reasons}</ul>
+      </div>` : "";
+
+    const awardLine = g.max_award_amount
+      ? `<span class="grant-award">Max Award: ${fmtCurrency(g.max_award_amount)}</span>`
+      : "";
+
+    const fundingLink = g.funding_url
+      ? `<a class="grant-link" href="${g.funding_url}" target="_blank" rel="noopener noreferrer">View Program ↗</a>`
+      : "";
+
+    return `
+      <div class="grant-card">
+        <div class="grant-card-header">
+          <div class="grant-program-name">${g.program_name}</div>
+          <div class="grant-badges">${grantTypeBadge(g.grant_type)}</div>
+        </div>
+        <div class="grant-agency">${g.agency || ""}${g.program_number ? " &middot; CFDA " + g.program_number : ""}</div>
+        <div class="grant-desc">${g.description || ""}</div>
+        <div class="grant-meta">${awardLine}${fundingLink}</div>
+        ${matchBlock}
+      </div>`;
+  }
+
+  function renderResults(data) {
+    const resultsEl = document.getElementById("results");
+    resultsEl.classList.remove("hidden");
+
+    const profileHtml = renderProfile(data.geoid, data.tract_name, data.acs_vintage, data.tract_profile);
+
+    let grantsHtml;
+    if (!data.grants || data.grants.length === 0) {
+      grantsHtml = `
+        <div class="empty-state">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="12" y1="8" x2="12" y2="12"/>
+            <line x1="12" y1="16" x2="12.01" y2="16"/>
+          </svg>
+          <p>No grants matched for this tract profile.</p>
+        </div>`;
+    } else {
+      const cards = data.grants.map(renderGrant).join("");
+      grantsHtml = `
+        <div class="grants-header">
+          <div>
+            <div class="section-label" style="margin-bottom:0">Matched Grants</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px">
+            <span class="grants-count-badge">${data.grants_matched} matched</span>
+            <button id="pdf-btn" class="btn-pdf" onclick="downloadPdf()">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="7 10 12 15 17 10"/>
+                <line x1="12" y1="15" x2="12" y2="3"/>
+              </svg>
+              Download PDF Report
+            </button>
+          </div>
+        </div>
+        ${cards}`;
+    }
+
+    resultsEl.innerHTML = profileHtml + grantsHtml;
+  }
+
+  // ─── Main flow ────────────────────────────────────────────────────────────
+  async function runScreen() {
+    const address = buildAddress();
+    if (!address) {
+      setError("Please enter at least a street address.");
+      return;
+    }
+
+    setBusy(true);
+    document.getElementById("results").classList.add("hidden");
+    document.getElementById("results").innerHTML = "";
+    lastGeoid = null;
+
+    try {
+      setLoading("Geocoding address…");
+      let lat, lon;
+      try {
+        ({ lat, lon } = await geocodeAddress(address));
+      } catch (e) {
+        setError(e.message);
+        return;
+      }
+
+      setLoading("Screening grants for this census tract…");
+      let data;
+      try {
+        data = await screenGrants(lat, lon);
+      } catch (e) {
+        setError(e.message);
+        return;
+      }
+
+      lastGeoid = data.geoid;
+      lastVintage = data.acs_vintage;
+      setStatus(null);
+      renderResults(data);
+
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  // Allow pressing Enter in any field
+  ["input-street","input-city","input-state","input-zip"].forEach(id => {
+    document.getElementById(id).addEventListener("keydown", e => {
+      if (e.key === "Enter") runScreen();
+    });
+  });
+</script>
+</body>
+</html>

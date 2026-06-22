@@ -71,6 +71,7 @@ CREATE TABLE IF NOT EXISTS grants.federal_grants (
     min_unemployment      NUMERIC(5,2),
     min_population        INTEGER,
     max_pct_bachelors     NUMERIC(5,2),
+    state_fips            CHAR(2),
     is_active             BOOLEAN DEFAULT TRUE,
     created_at            TIMESTAMPTZ DEFAULT NOW()
 );
@@ -188,3 +189,11 @@ INSERT INTO grants.federal_grants (
  'Funds affordable housing production and remediation of polluted land for development in the seven-county MSP metro.',
  1500000, 'https://metrocouncil.org/Communities/Services/Livable-Communities-Grants.aspx',
  NULL, 75000, NULL, 30.0, NULL, 500, NULL);
+
+-- Tag state-specific grants so they only match tracts in their state
+UPDATE grants.federal_grants SET state_fips = '27'
+WHERE program_name IN (
+    'MN DEED Pathways to Prosperity Grant',
+    'MN Housing Finance Agency Challenge Program',
+    'Metropolitan Council Livable Communities Grant'
+);
