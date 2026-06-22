@@ -146,7 +146,14 @@ def _fetch_agency_breakdown(filters: dict) -> tuple[float, list[dict]]:
 
 
 def _fetch_top_awards(filters: dict, limit: int = 5) -> list[dict]:
-    """Returns the top `limit` awards by amount."""
+    """
+    Returns the top `limit` awards by amount, restricted to awards whose
+    Start Date falls in FY2022 or later (Start Date >= 2021-10-01).
+
+    The USASpending search API has no Start Date filter, so we fetch a larger
+    batch and filter in-code. Awards with a null Start Date are excluded because
+    we cannot verify when they originated.
+    """
     data = _post("/search/spending_by_award/", {
         "filters": filters,
         "fields": [
@@ -155,13 +162,17 @@ def _fetch_top_awards(filters: dict, limit: int = 5) -> list[dict]:
             "Start Date", "Description",
         ],
         "page": 1,
-        "limit": limit,
+        "limit": 25,   # fetch extra to have enough after filtering
         "sort": "Award Amount",
         "order": "desc",
     })
 
     awards = []
     for r in data.get("results") or []:
+        fy = _start_date_to_fy(r.get("Start Date"))
+        if fy is None or fy < 2022:
+            continue   # exclude pre-FY2022 and undated awards
+
         raw_id = r.get("generated_internal_id") or ""
         awards.append({
             "recipient":    _title_case(r.get("Recipient Name") or ""),
@@ -169,9 +180,12 @@ def _fetch_top_awards(filters: dict, limit: int = 5) -> list[dict]:
             "agency":       r.get("Awarding Agency") or "",
             "cfda":         r.get("CFDA Number") or "",
             "description":  _truncate(r.get("Description") or "", 120),
-            "fiscal_year":  _start_date_to_fy(r.get("Start Date")),
+            "fiscal_year":  fy,
             "url":          f"https://www.usaspending.gov/award/{raw_id}/" if raw_id else None,
         })
+        if len(awards) == limit:
+            break
+
     return awards
 
 
