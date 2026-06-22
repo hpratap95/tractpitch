@@ -1214,9 +1214,44 @@
     });
   });
 
-  // ─── Landing page ?q= pre-fill ───────────────────────────────────────────
-  // When routed here from the landing page with ?q=full+address, bypass the
-  // split-field form and run the geocoder against the raw address string.
+  // ─── Landing page ?q= address parser ────────────────────────────────────
+  // Accepts a full address string like "422 W 3rd St, Davenport, IA 52801"
+  // and pre-fills the split-field form before running the screener.
+
+  /**
+   * Parse a single-line address into parts.
+   * Handles:
+   *   "123 Main St, Minneapolis, MN 55401"
+   *   "123 Main St, Minneapolis, MN"
+   *   "123 Main St, Minneapolis, Minnesota 55401"  (state abbreviation extracted)
+   * Returns { street, city, state, zip } or null if pattern doesn't match.
+   */
+  function _parseAddress(raw) {
+    // Normalize extra whitespace
+    const s = raw.replace(/\s+/g, " ").trim();
+
+    // Pattern: "STREET, CITY, STATE_ABBR[ ZIP]"
+    // State can be 2-letter abbr or a word (we capture only abbr from the segment)
+    const m = s.match(
+      /^([^,]+?),\s*([^,]+?),\s*([A-Za-z]{2,})\s*(\d{5}(?:-\d{4})?)?$/
+    );
+    if (!m) return null;
+
+    let state = m[3].trim();
+    // If state is more than 2 chars it might be spelled out — try to get abbr from end
+    if (state.length > 2) {
+      // e.g. "Iowa" → we can't reliably abbreviate here; return null so fallback applies
+      return null;
+    }
+
+    return {
+      street: m[1].trim(),
+      city:   m[2].trim(),
+      state:  state.toUpperCase(),
+      zip:    (m[4] || "").trim(),
+    };
+  }
+
   async function _runDirect(address) {
     setBusy(true);
     document.getElementById("results").classList.add("hidden");
@@ -1247,9 +1282,24 @@
 
   (function () {
     const q = new URLSearchParams(window.location.search).get("q");
-    if (q) {
-      document.getElementById("input-street").value = q;
+    if (!q) return;
+
+    const parsed = _parseAddress(q);
+
+    if (parsed) {
+      // Fill all four fields
+      document.getElementById("input-street").value = parsed.street;
+      document.getElementById("input-city").value   = parsed.city;
+      document.getElementById("input-zip").value    = parsed.zip;
+      // Set state select; if value not in options it silently stays empty
+      const sel = document.getElementById("input-state");
+      sel.value = parsed.state;
+      // Auto-run using the original full address string (most accurate for geocoder)
       _runDirect(q);
+    } else {
+      // Parsing failed — pre-fill street only and let user complete the form
+      document.getElementById("input-street").value = q;
+      setStatus("loading", "<span>Address pre-filled — please verify city and state, then click Screen Grants.</span>");
     }
   })();
 </script>

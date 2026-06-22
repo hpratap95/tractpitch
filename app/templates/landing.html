@@ -558,6 +558,145 @@
       margin-top: 28px;
       text-align: center;
     }
+
+    /* ── Waitlist modal ──────────────────────────────────────────────────── */
+    .modal-backdrop {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.55);
+      z-index: 200;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .modal-backdrop.open { display: flex; }
+
+    .modal {
+      background: var(--white);
+      border-radius: 16px;
+      padding: 40px 36px 36px;
+      max-width: 460px;
+      width: 100%;
+      position: relative;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.35);
+      animation: modal-in 0.18s ease;
+    }
+
+    @keyframes modal-in {
+      from { opacity: 0; transform: scale(0.95) translateY(8px); }
+      to   { opacity: 1; transform: scale(1)    translateY(0); }
+    }
+
+    .modal-close {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--gray-400);
+      padding: 4px;
+      border-radius: 4px;
+      line-height: 0;
+      transition: color 0.15s;
+    }
+
+    .modal-close:hover { color: var(--gray-600); }
+
+    .modal-eyebrow {
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--blue);
+      margin-bottom: 10px;
+    }
+
+    .modal-title {
+      font-size: 1.375rem;
+      font-weight: 800;
+      color: var(--navy);
+      letter-spacing: -0.02em;
+      margin-bottom: 10px;
+      line-height: 1.25;
+    }
+
+    .modal-body {
+      font-size: 0.9rem;
+      color: var(--gray-600);
+      line-height: 1.6;
+      margin-bottom: 28px;
+    }
+
+    .modal-form {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .modal-input {
+      width: 100%;
+      padding: 13px 16px;
+      font-size: 0.9375rem;
+      border: 1.5px solid var(--gray-200);
+      border-radius: 8px;
+      outline: none;
+      color: var(--gray-900);
+      transition: border-color 0.15s;
+    }
+
+    .modal-input:focus {
+      border-color: var(--blue);
+      box-shadow: 0 0 0 3px rgba(59,130,246,0.12);
+    }
+
+    .modal-input::placeholder { color: var(--gray-400); }
+
+    .modal-submit {
+      width: 100%;
+      padding: 13px;
+      background: var(--blue);
+      color: var(--white);
+      border: none;
+      border-radius: 8px;
+      font-size: 0.9375rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .modal-submit:hover:not(:disabled) { background: var(--blue-dark); }
+    .modal-submit:disabled { background: var(--gray-400); cursor: not-allowed; }
+
+    .modal-msg {
+      font-size: 0.85rem;
+      padding: 10px 14px;
+      border-radius: 7px;
+      display: none;
+    }
+
+    .modal-msg.success {
+      display: block;
+      background: var(--green-bg);
+      color: var(--green);
+      border: 1px solid #bbf7d0;
+    }
+
+    .modal-msg.error {
+      display: block;
+      background: #fef2f2;
+      color: #dc2626;
+      border: 1px solid #fecaca;
+    }
+
+    .modal-note {
+      font-size: 0.78rem;
+      color: var(--gray-400);
+      text-align: center;
+      margin-top: 4px;
+    }
   </style>
 </head>
 <body>
@@ -749,7 +888,7 @@
           Priority support
         </li>
       </ul>
-      <a href="/screener" class="btn-pricing-pro">Start Free Trial</a>
+      <button type="button" class="btn-pricing-pro" onclick="openWaitlistModal()">Start Free Trial</button>
     </div>
 
   </div>
@@ -772,12 +911,98 @@
   <p class="footer-copy">tractpitch.com &nbsp;&middot;&nbsp; &copy; 2026 TractPitch. All rights reserved.</p>
 </footer>
 
+<!-- ── Waitlist modal ───────────────────────────────────────────────────── -->
+<div class="modal-backdrop" id="waitlist-modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+  <div class="modal">
+    <button class="modal-close" onclick="closeWaitlistModal()" aria-label="Close">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+      </svg>
+    </button>
+    <p class="modal-eyebrow">Pro Plan</p>
+    <h2 class="modal-title" id="modal-title">Coming soon — be first to know</h2>
+    <p class="modal-body">
+      Pro launches with unlimited searches, saved addresses, deadline alerts, and bulk CSV upload.
+      Enter your email and we'll notify you the moment it's available.
+    </p>
+    <form class="modal-form" onsubmit="submitWaitlist(event)">
+      <input
+        id="waitlist-email"
+        class="modal-input"
+        type="email"
+        placeholder="you@organization.org"
+        autocomplete="email"
+        required
+      />
+      <button type="submit" class="modal-submit" id="waitlist-submit">Notify Me When Pro Launches</button>
+      <div class="modal-msg" id="waitlist-msg"></div>
+      <p class="modal-note">No spam. One email when Pro launches.</p>
+    </form>
+  </div>
+</div>
+
 <script>
   function handleHeroSubmit(e) {
     e.preventDefault();
     const address = document.getElementById("hero-address").value.trim();
     if (!address) return;
     window.location.href = "/screener?q=" + encodeURIComponent(address);
+  }
+
+  function openWaitlistModal() {
+    document.getElementById("waitlist-modal").classList.add("open");
+    document.getElementById("waitlist-email").focus();
+    document.body.style.overflow = "hidden";
+  }
+
+  function closeWaitlistModal() {
+    document.getElementById("waitlist-modal").classList.remove("open");
+    document.body.style.overflow = "";
+  }
+
+  // Close on backdrop click
+  document.getElementById("waitlist-modal").addEventListener("click", function(e) {
+    if (e.target === this) closeWaitlistModal();
+  });
+
+  // Close on Escape
+  document.addEventListener("keydown", function(e) {
+    if (e.key === "Escape") closeWaitlistModal();
+  });
+
+  async function submitWaitlist(e) {
+    e.preventDefault();
+    const email   = document.getElementById("waitlist-email").value.trim();
+    const btn     = document.getElementById("waitlist-submit");
+    const msgEl   = document.getElementById("waitlist-msg");
+
+    btn.disabled    = true;
+    btn.textContent = "Saving…";
+    msgEl.className = "modal-msg";
+    msgEl.textContent = "";
+
+    try {
+      const resp = await fetch("/api/v1/waitlist", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ email }),
+      });
+      const data = await resp.json();
+
+      if (resp.ok) {
+        msgEl.className   = "modal-msg success";
+        msgEl.textContent = data.message || "You're on the list!";
+        btn.textContent   = "You're on the list!";
+        document.getElementById("waitlist-email").disabled = true;
+      } else {
+        throw new Error(data.detail || "Something went wrong. Please try again.");
+      }
+    } catch (err) {
+      msgEl.className   = "modal-msg error";
+      msgEl.textContent = err.message;
+      btn.disabled      = false;
+      btn.textContent   = "Notify Me When Pro Launches";
+    }
   }
 </script>
 
