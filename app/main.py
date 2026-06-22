@@ -28,5 +28,10 @@ app.include_router(geocode.router, prefix="/api/v1", tags=["Geocode"])
 
 
 @app.get("/", include_in_schema=False)
-def index():
+def landing():
+    return FileResponse("app/templates/landing.html")
+
+
+@app.get("/screener", include_in_schema=False)
+def screener():
     return FileResponse("app/templates/index.html")

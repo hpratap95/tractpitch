@@ -1213,6 +1213,45 @@
       if (e.key === "Enter") runScreen();
     });
   });
+
+  // ─── Landing page ?q= pre-fill ───────────────────────────────────────────
+  // When routed here from the landing page with ?q=full+address, bypass the
+  // split-field form and run the geocoder against the raw address string.
+  async function _runDirect(address) {
+    setBusy(true);
+    document.getElementById("results").classList.add("hidden");
+    document.getElementById("results").innerHTML = "";
+    lastGeoid = null;
+
+    try {
+      setLoading("Geocoding address…");
+      let lat, lon;
+      try {
+        ({ lat, lon } = await geocodeAddress(address));
+      } catch (e) { setError(e.message); return; }
+
+      setLoading("Screening grants for this census tract…");
+      let data;
+      try {
+        data = await screenGrants(lat, lon);
+      } catch (e) { setError(e.message); return; }
+
+      lastGeoid   = data.geoid;
+      lastVintage = data.acs_vintage;
+      setStatus(null);
+      renderResults(data);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  (function () {
+    const q = new URLSearchParams(window.location.search).get("q");
+    if (q) {
+      document.getElementById("input-street").value = q;
+      _runDirect(q);
+    }
+  })();
 </script>
 </body>
 </html>
