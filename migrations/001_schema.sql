@@ -190,6 +190,38 @@ INSERT INTO grants.federal_grants (
  1500000, 'https://metrocouncil.org/Communities/Services/Livable-Communities-Grants.aspx',
  NULL, 75000, NULL, 30.0, NULL, 500, NULL);
 
+-- ── hud.qct_designations ──────────────────────────────────────────────────────
+-- HUD Qualified Census Tract designations (loaded from HUD QCT data file).
+-- is_qct = TRUE means the tract is designated a QCT for the given year.
+
+CREATE SCHEMA IF NOT EXISTS hud;
+
+CREATE TABLE IF NOT EXISTS hud.qct_designations (
+    geoid        VARCHAR(11) PRIMARY KEY,
+    is_qct       BOOLEAN     NOT NULL,
+    state_fips   CHAR(2),
+    county_fips  CHAR(3),
+    cbsa         INTEGER,
+    loaded_at    TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_qct_geoid ON hud.qct_designations(geoid);
+
+-- ── hud.cdbg_eligibility ───────────────────────────────────────────────────────
+-- CDBG (Community Development Block Grant) eligibility by census tract.
+-- eligibility values: 'CD Eligible', 'Ineligible', etc.
+
+CREATE TABLE IF NOT EXISTS hud.cdbg_eligibility (
+    geoid              VARCHAR(11) PRIMARY KEY,
+    eligibility        VARCHAR(50),
+    lmod_pct           NUMERIC(5,2),
+    low_mod_population INTEGER,
+    total_population   INTEGER,
+    loaded_at          TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_cdbg_geoid ON hud.cdbg_eligibility(geoid);
+
 -- Tag state-specific grants so they only match tracts in their state
 UPDATE grants.federal_grants SET state_fips = '27'
 WHERE program_name IN (

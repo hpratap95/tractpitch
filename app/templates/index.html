@@ -475,6 +475,48 @@
       flex-shrink: 0;
     }
 
+    /* HUD designation badges */
+    .hud-badges {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 16px;
+      padding-top: 14px;
+      border-top: 1px solid var(--gray-200);
+    }
+
+    .hud-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.775rem;
+      font-weight: 600;
+      padding: 5px 12px;
+      border-radius: 6px;
+      letter-spacing: 0.01em;
+    }
+
+    .hud-badge-active {
+      background: var(--green-bg);
+      color: var(--green-text);
+      border: 1px solid #bbf7d0;
+    }
+
+    .hud-badge-active::before {
+      content: "✓";
+      font-weight: 700;
+    }
+
+    .hud-badge-inactive {
+      background: var(--gray-100);
+      color: var(--gray-400);
+      border: 1px solid var(--gray-200);
+    }
+
+    .hud-badge-inactive::before {
+      content: "–";
+    }
+
     /* Empty state */
     .empty-state {
       background: #fff;
@@ -698,7 +740,11 @@
     return `<span class="badge badge-local">${type || "Other"}</span>`;
   }
 
-  function renderProfile(geoid, tractName, vintage, profile) {
+  function renderProfile(geoid, tractName, vintage, profile, hudFlags) {
+    hudFlags = hudFlags || {};
+    const qctClass  = hudFlags.is_qct           ? "hud-badge-active" : "hud-badge-inactive";
+    const cdbgClass = hudFlags.is_cdbg_eligible  ? "hud-badge-active" : "hud-badge-inactive";
+
     return `
       <div class="section-label">Tract Profile</div>
       <div class="profile-card">
@@ -736,6 +782,10 @@
             <div class="stat-value">${fmt(profile.pct_bachelors)}%</div>
           </div>
         </div>
+        <div class="hud-badges">
+          <span class="hud-badge ${qctClass}">HUD Qualified Census Tract 2026</span>
+          <span class="hud-badge ${cdbgClass}">CDBG Eligible Area</span>
+        </div>
       </div>`;
   }
 
@@ -772,7 +822,7 @@
     const resultsEl = document.getElementById("results");
     resultsEl.classList.remove("hidden");
 
-    const profileHtml = renderProfile(data.geoid, data.tract_name, data.acs_vintage, data.tract_profile);
+    const profileHtml = renderProfile(data.geoid, data.tract_name, data.acs_vintage, data.tract_profile, data.hud_flags);
 
     let grantsHtml;
     if (!data.grants || data.grants.length === 0) {

@@ -78,6 +78,25 @@ def _fetch_demographics(db: Session, geoid: str, vintage: int) -> dict:
     return dict(row)
 
 
+def _fetch_hud_flags(db: Session, geoid: str) -> dict:
+    qct_row = db.execute(text("""
+        SELECT is_qct FROM hud.qct_designations WHERE geoid = :geoid
+    """), {"geoid": geoid}).mappings().first()
+
+    cdbg_row = db.execute(text("""
+        SELECT eligibility FROM hud.cdbg_eligibility WHERE geoid = :geoid
+    """), {"geoid": geoid}).mappings().first()
+
+    is_qct = bool(qct_row["is_qct"]) if qct_row else False
+    is_cdbg = (
+        cdbg_row is not None
+        and "eligible" in (cdbg_row["eligibility"] or "").lower()
+        and "ineligible" not in (cdbg_row["eligibility"] or "").lower()
+    )
+
+    return {"is_qct": is_qct, "is_cdbg_eligible": is_cdbg}
+
+
 def _screen_grants(db: Session, demo: dict) -> list[dict]:
     pct_minority = sum(filter(None, [
         demo.get("pct_black_alone") or 0,
@@ -194,6 +213,7 @@ def screen_grants(payload: GrantScreenRequest, db: Session = Depends(get_db)):
     geoid = _resolve_geoid(db, payload)
     demo = _fetch_demographics(db, geoid, payload.vintage)
     matched = _screen_grants(db, demo)
+    hud_flags = _fetch_hud_flags(db, geoid)
 
     tract_profile = {
         "total_population":  demo.get("total_population"),
@@ -233,6 +253,7 @@ def screen_grants(payload: GrantScreenRequest, db: Session = Depends(get_db)):
         "tract_name": demo.get("tract_name"),
         "acs_vintage": payload.vintage,
         "tract_profile": tract_profile,
+        "hud_flags": hud_flags,
         "grants_matched": len(matched),
         "grants": matched,
     }
