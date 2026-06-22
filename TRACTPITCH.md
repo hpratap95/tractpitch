@@ -83,6 +83,21 @@ To add a new grant, insert a row into `grants.federal_grants` and add the same r
 
 ---
 
+## Adding a New Metro Area
+
+TractPitch's database is fully independent of Locivus. To add a new metro:
+
+1. Find the county FIPS codes for the target metro (use [census.gov](https://www.census.gov/library/reference/code-lists/ansi.html))
+2. Add the state + county FIPS to `quad_cities_counties` (or a new config field) in the Locivus `app/core/config.py`
+3. Add new ETL endpoints in Locivus `app/api/routes/etl.py` following the Quad Cities pattern
+4. Trigger the two pipelines via the Locivus API:
+   - `POST /api/v1/etl/run/tiger_tracts/{metro}`
+   - `POST /api/v1/etl/run/census_acs/{metro}`
+5. Export the new tracts from the Locivus DB and load them into TractPitch's DB (port 5433)
+6. Add any state-specific grant programs for the new market to `grants.federal_grants` with the appropriate `state_fips`
+
+---
+
 ## Roadmap
 
 - Add Iowa and Illinois state-specific grant programs for the Quad Cities market
