@@ -100,47 +100,37 @@ def load_qct(conn):
 
 # ── CDBG loader ───────────────────────────────────────────────────────────────
 
-# NYC borough code → 3-digit county FIPS within New York state (FIPS 36)
-_BORO_COUNTY = {1: "061", 2: "005", 3: "047", 4: "081", 5: "085"}
-
-
-def _build_cdbg_geoid(boro_code: int, ct_text: int) -> str:
-    """
-    Construct an 11-digit census GEOID from NYC borough-specific fields.
-
-    CT_text encodes borough + tract: e.g. 1000201 → boro=1, tract=000201.
-    NY state FIPS = 36.
-    """
-    county = _BORO_COUNTY.get(boro_code)
-    if not county:
-        return None
-    ct_str  = str(ct_text).zfill(7)   # 1 boro digit + 6 tract digits
-    tract_6 = ct_str[1:]              # drop the boro prefix
-    return f"36{county}{tract_6}"
+# HUD LMI threshold for CDBG eligibility: tract qualifies if ≥51% of residents
+# are low-to-moderate income (standard HUD CDBG area-benefit threshold).
+CDBG_LMI_THRESHOLD = 51.0
 
 
 def load_cdbg(conn):
     """
-    Load CDBG eligibility data from the CSV file.
+    Load HUD Low-to-Moderate Income (LMI) Population by Tract data.
 
-    NOTE: The current source file covers only New York City tracts.
-    All MSP and Quad Cities tracts will be absent from this table,
-    so their CDBG badge will render as inactive (gray) until a
-    national CDBG eligibility file is loaded.
+    Source columns:
+        GEOID        – 11-digit census tract GEOID (stored as integer; zero-pad to 11)
+        LOWMOD       – count of LMI persons in the tract
+        LOWMODUNIV   – total population universe used for the percentage
+        LOWMODPCT    – LMI percentage (LOWMOD / LOWMODUNIV * 100)
+
+    A tract is marked 'CD Eligible' when LOWMODPCT >= 51 (HUD CDBG threshold).
     """
     print(f"Reading {CDBG_FILE.name}…")
     df = pd.read_csv(CDBG_FILE)
 
-    df["geoid"] = df.apply(
-        lambda r: _build_cdbg_geoid(int(r["BoroCode"]), int(r["CT_text"])),
-        axis=1,
-    )
-    df = df[df["geoid"].notna()].copy()
+    # GEOID is stored as an integer (leading zeros dropped for low state FIPS)
+    df["geoid"] = df["GEOID"].astype(str).str.zfill(11)
 
-    rows = df[["geoid", "Eligibility", "LoMod_pct", "LowMod_Population", "TotalPop"]].values.tolist()
+    # Derive eligibility from the LMI percentage
+    df["eligibility"] = df["LOWMODPCT"].apply(
+        lambda pct: "CD Eligible" if pd.notna(pct) and pct >= CDBG_LMI_THRESHOLD else "Ineligible"
+    )
+
+    rows = df[["geoid", "eligibility", "LOWMODPCT", "LOWMOD", "LOWMODUNIV"]].values.tolist()
 
     print(f"  Loaded {len(rows):,} rows. Inserting into hud.cdbg_eligibility…")
-    print(f"  NOTE: This file covers NYC tracts only — MSP/Quad Cities tracts will not appear here.")
 
     with conn.cursor() as cur:
         cur.execute("TRUNCATE hud.cdbg_eligibility")
@@ -173,10 +163,10 @@ def load_cdbg(conn):
     with conn.cursor() as cur:
         cur.execute("SELECT COUNT(*) FROM hud.cdbg_eligibility")
         total = cur.fetchone()[0]
-        cur.execute("SELECT COUNT(*) FROM hud.cdbg_eligibility WHERE eligibility ILIKE '%eligible%' AND eligibility NOT ILIKE '%ineligible%'")
+        cur.execute("SELECT COUNT(*) FROM hud.cdbg_eligibility WHERE eligibility = 'CD Eligible'")
         elig_count = cur.fetchone()[0]
 
-    print(f"  hud.cdbg_eligibility: {total:,} tracts total, {elig_count:,} CDBG eligible")
+    print(f"  hud.cdbg_eligibility: {total:,} tracts total, {elig_count:,} CDBG eligible (LOWMODPCT ≥ {CDBG_LMI_THRESHOLD:.0f}%)")
 
 
 # ── Main ──────────────────────────────────────────────────────────────────────
