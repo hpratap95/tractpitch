@@ -129,6 +129,24 @@
       max-width: 900px;
     }
 
+    /* ── Disclaimer ──────────────────────────────────── */
+    .disclaimer {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      background: #eff6ff;
+      border-bottom: 1px solid #bfdbfe;
+      padding: 10px 40px;
+      font-size: 0.8375rem;
+      color: #1e40af;
+    }
+
+    /* ── Required star ───────────────────────────────── */
+    .required {
+      color: var(--red);
+      margin-left: 2px;
+    }
+
     /* ── Search form ──────────────────────────────────── */
     .search-card {
       background: #fff;
@@ -180,6 +198,15 @@
     }
 
     .search-input::placeholder { color: var(--gray-400); }
+
+    .search-select {
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+      padding-right: 32px;
+      cursor: pointer;
+    }
 
     .btn-primary {
       padding: 11px 22px;
@@ -503,6 +530,12 @@
     <h1>Grant Screener</h1>
     <p>Enter any address to see which federal and state grants that census tract qualifies for.</p>
   </div>
+  <div class="disclaimer">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-top:1px">
+      <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+    </svg>
+    <span><strong>Supported areas:</strong> Twin Cities metro, MN &nbsp;·&nbsp; Quad Cities metro, IA</span>
+  </div>
 
   <div class="content">
 
@@ -510,19 +543,22 @@
     <div class="search-card">
       <div class="address-grid">
         <div class="field-group field-street">
-          <label class="field-label" for="input-street">Street Address</label>
+          <label class="field-label" for="input-street">Street Address <span class="required">*</span></label>
           <input id="input-street" class="search-input" type="text"
             placeholder="123 Main St" autocomplete="address-line1" />
         </div>
         <div class="field-group field-city">
-          <label class="field-label" for="input-city">City</label>
+          <label class="field-label" for="input-city">City <span class="required">*</span></label>
           <input id="input-city" class="search-input" type="text"
             placeholder="Davenport" autocomplete="address-level2" />
         </div>
         <div class="field-group field-state">
-          <label class="field-label" for="input-state">State</label>
-          <input id="input-state" class="search-input" type="text"
-            placeholder="IA" maxlength="2" autocomplete="address-level1" />
+          <label class="field-label" for="input-state">State <span class="required">*</span></label>
+          <select id="input-state" class="search-input search-select" autocomplete="address-level1">
+            <option value="" disabled selected>Select…</option>
+            <option value="IA">IA — Iowa</option>
+            <option value="MN">MN — Minnesota</option>
+          </select>
         </div>
         <div class="field-group field-zip">
           <label class="field-label" for="input-zip">ZIP Code</label>
@@ -776,11 +812,15 @@
 
   // ─── Main flow ────────────────────────────────────────────────────────────
   async function runScreen() {
+    const street = document.getElementById("input-street").value.trim();
+    const city   = document.getElementById("input-city").value.trim();
+    const state  = document.getElementById("input-state").value.trim();
+
+    if (!street) { setError("Street address is required."); return; }
+    if (!city)   { setError("City is required."); return; }
+    if (!state)  { setError("Please select a state."); return; }
+
     const address = buildAddress();
-    if (!address) {
-      setError("Please enter at least a street address.");
-      return;
-    }
 
     setBusy(true);
     document.getElementById("results").classList.add("hidden");
@@ -816,8 +856,8 @@
     }
   }
 
-  // Allow pressing Enter in any field
-  ["input-street","input-city","input-state","input-zip"].forEach(id => {
+  // Allow pressing Enter in text fields
+  ["input-street","input-city","input-zip"].forEach(id => {
     document.getElementById(id).addEventListener("keydown", e => {
       if (e.key === "Enter") runScreen();
     });
