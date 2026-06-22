@@ -475,6 +475,41 @@
       flex-shrink: 0;
     }
 
+    /* Grants.gov solicitation badges */
+    .sol-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      padding: 3px 10px;
+      border-radius: 5px;
+      text-decoration: none;
+      white-space: nowrap;
+    }
+
+    .sol-badge-open {
+      background: #dcfce7;
+      color: #15803d;
+      border: 1px solid #bbf7d0;
+    }
+
+    .sol-badge-open:hover { background: #bbf7d0; }
+
+    .sol-badge-forecast {
+      background: #eff6ff;
+      color: #1d4ed8;
+      border: 1px solid #bfdbfe;
+    }
+
+    .sol-badge-forecast:hover { background: #dbeafe; }
+
+    .sol-formula {
+      font-size: 0.775rem;
+      color: var(--gray-400);
+      font-style: italic;
+    }
+
     /* HUD designation badges */
     .hud-badges {
       display: flex;
@@ -789,6 +824,21 @@
       </div>`;
   }
 
+  function renderSolicitation(sol) {
+    if (!sol) return "";
+    if (sol.formula) {
+      return `<span class="sol-formula">Formula grant &mdash; apply locally</span>`;
+    }
+    const label = sol.deadline
+      ? `Due ${sol.deadline}`
+      : (sol.status === "forecasted" ? "Forecasted" : "Open &mdash; Rolling");
+    const cls = sol.status === "forecasted" ? "sol-badge-forecast" : "sol-badge-open";
+    const icon = sol.status === "forecasted"
+      ? `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`
+      : `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
+    return `<a class="sol-badge ${cls}" href="${sol.url}" target="_blank" rel="noopener noreferrer">${icon}${label} ↗</a>`;
+  }
+
   function renderGrant(g) {
     const reasons = (g.matched_criteria || []).map(r => `<li>${r}</li>`).join("");
     const matchBlock = reasons ? `
@@ -805,11 +855,13 @@
       ? `<a class="grant-link" href="${g.funding_url}" target="_blank" rel="noopener noreferrer">View Program ↗</a>`
       : "";
 
+    const solBadge = renderSolicitation(g.solicitation);
+
     return `
       <div class="grant-card">
         <div class="grant-card-header">
           <div class="grant-program-name">${g.program_name}</div>
-          <div class="grant-badges">${grantTypeBadge(g.grant_type)}</div>
+          <div class="grant-badges">${grantTypeBadge(g.grant_type)}${solBadge ? '&nbsp;' + solBadge : ''}</div>
         </div>
         <div class="grant-agency">${g.agency || ""}${g.program_number ? " &middot; CFDA " + g.program_number : ""}</div>
         <div class="grant-desc">${g.description || ""}</div>

@@ -1,4 +1,6 @@
 import io
+import logging
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Literal, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -8,6 +10,9 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
+from app.services.grants_gov import fetch_solicitation
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -201,6 +206,32 @@ def _build_match_reasons(grant: dict, demo: dict, pct_minority: float, unemploym
     return reasons
 
 
+def _enrich_with_solicitations(grants: list[dict]) -> list[dict]:
+    """
+    Fetch Grants.gov live solicitation data for each matched grant in parallel.
+    Attaches a `solicitation` key to each grant dict (may be None).
+    """
+    def _fetch(g: dict) -> tuple[str, Optional[dict]]:
+        try:
+            sol = fetch_solicitation(g["program_name"], g.get("program_number"))
+        except Exception as exc:
+            logger.warning("Grants.gov lookup failed for %s: %s", g["program_name"], exc)
+            sol = None
+        return g["id"], sol
+
+    solicitations: dict[str, Optional[dict]] = {}
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        futures = {pool.submit(_fetch, g): g["id"] for g in grants}
+        for future in as_completed(futures):
+            grant_id, sol = future.result()
+            solicitations[grant_id] = sol
+
+    for g in grants:
+        g["solicitation"] = solicitations.get(g["id"])
+
+    return grants
+
+
 @router.post("/screen")
 def screen_grants(payload: GrantScreenRequest, db: Session = Depends(get_db)):
     """
@@ -214,6 +245,7 @@ def screen_grants(payload: GrantScreenRequest, db: Session = Depends(get_db)):
     demo = _fetch_demographics(db, geoid, payload.vintage)
     matched = _screen_grants(db, demo)
     hud_flags = _fetch_hud_flags(db, geoid)
+    matched = _enrich_with_solicitations(matched)
 
     tract_profile = {
         "total_population":  demo.get("total_population"),
