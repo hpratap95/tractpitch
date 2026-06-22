@@ -93,14 +93,19 @@ def _fetch_hud_flags(db: Session, geoid: str) -> dict:
         SELECT eligibility FROM hud.cdbg_eligibility WHERE geoid = :geoid
     """), {"geoid": geoid}).mappings().first()
 
+    oz_row = db.execute(text("""
+        SELECT oz2_eligible FROM hud.opportunity_zones WHERE geoid = :geoid
+    """), {"geoid": geoid}).mappings().first()
+
     is_qct = bool(qct_row["is_qct"]) if qct_row else False
     is_cdbg = (
         cdbg_row is not None
         and "eligible" in (cdbg_row["eligibility"] or "").lower()
         and "ineligible" not in (cdbg_row["eligibility"] or "").lower()
     )
+    is_oz2 = bool(oz_row["oz2_eligible"]) if oz_row else False
 
-    return {"is_qct": is_qct, "is_cdbg_eligible": is_cdbg}
+    return {"is_qct": is_qct, "is_cdbg_eligible": is_cdbg, "is_oz2_eligible": is_oz2}
 
 
 def _screen_grants(db: Session, demo: dict) -> list[dict]:

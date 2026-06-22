@@ -695,6 +695,37 @@
       content: "–";
     }
 
+    /* Tooltip on HUD badges */
+    .hud-badge[data-tip] {
+      position: relative;
+      cursor: default;
+    }
+
+    .hud-badge[data-tip]:hover::after {
+      content: attr(data-tip);
+      position: absolute;
+      bottom: calc(100% + 6px);
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--navy);
+      color: #fff;
+      font-size: 0.72rem;
+      font-weight: 400;
+      white-space: nowrap;
+      padding: 5px 10px;
+      border-radius: 5px;
+      pointer-events: none;
+      z-index: 10;
+      font-style: normal;
+    }
+
+    .hud-badge[data-tip]:hover::before {
+      content: none;
+    }
+
+    .hud-badge[data-tip].hud-badge-active::before  { content: "✓"; }
+    .hud-badge[data-tip].hud-badge-inactive::before { content: "–"; }
+
     /* Empty state */
     .empty-state {
       background: #fff;
@@ -920,8 +951,9 @@
 
   function renderProfile(geoid, tractName, vintage, profile, hudFlags) {
     hudFlags = hudFlags || {};
-    const qctClass  = hudFlags.is_qct           ? "hud-badge-active" : "hud-badge-inactive";
+    const qctClass  = hudFlags.is_qct            ? "hud-badge-active" : "hud-badge-inactive";
     const cdbgClass = hudFlags.is_cdbg_eligible  ? "hud-badge-active" : "hud-badge-inactive";
+    const oz2Class  = hudFlags.is_oz2_eligible   ? "hud-badge-active" : "hud-badge-inactive";
 
     return `
       <div class="section-label">Tract Profile</div>
@@ -963,6 +995,7 @@
         <div class="hud-badges">
           <span class="hud-badge ${qctClass}">HUD Qualified Census Tract 2026</span>
           <span class="hud-badge ${cdbgClass}">CDBG Eligible Area</span>
+          <span class="hud-badge ${oz2Class}" data-tip="Eligible for Opportunity Zone 2.0 nomination — designations begin July 1, 2026">OZ 2.0 Eligible</span>
         </div>
       </div>`;
   }

@@ -222,6 +222,19 @@ CREATE TABLE IF NOT EXISTS hud.cdbg_eligibility (
 
 CREATE INDEX IF NOT EXISTS idx_cdbg_geoid ON hud.cdbg_eligibility(geoid);
 
+-- ── hud.opportunity_zones ─────────────────────────────────────────────────────
+-- OZ 2.0 eligible tracts derived from 2020-2024 ACS data (opportunityzones.com).
+-- oz2_score: 0=not eligible, 1=MFI-only eligible, 2=eligible on both tests.
+
+CREATE TABLE IF NOT EXISTS hud.opportunity_zones (
+    geoid       VARCHAR(11) PRIMARY KEY,
+    oz2_eligible BOOLEAN    NOT NULL,
+    oz2_score    SMALLINT   NOT NULL DEFAULT 0,
+    loaded_at   TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_oz_geoid ON hud.opportunity_zones(geoid);
+
 -- Tag state-specific grants so they only match tracts in their state
 UPDATE grants.federal_grants SET state_fips = '27'
 WHERE program_name IN (

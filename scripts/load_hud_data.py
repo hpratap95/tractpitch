@@ -28,6 +28,7 @@ DATA_DIR = Path(__file__).parent.parent / "data"
 
 QCT_FILE  = DATA_DIR / "qct_data_2026.xlsx"
 CDBG_FILE = DATA_DIR / "Community_Development_Block_Grant__CDBG__Eligibility_by_Census_Tract_-_CSV.csv"
+OZ_FILE   = DATA_DIR / "OZ-2.0-Tract-Eligibility-2020-2024-ACS-Data.xlsx"
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -169,6 +170,59 @@ def load_cdbg(conn):
     print(f"  hud.cdbg_eligibility: {total:,} tracts total, {elig_count:,} CDBG eligible (LOWMODPCT ≥ {CDBG_LMI_THRESHOLD:.0f}%)")
 
 
+# ── OZ 2.0 loader ─────────────────────────────────────────────────────────────
+
+def load_oz(conn):
+    """
+    Load OZ 2.0 eligible census tracts from the opportunityzones.com Excel file.
+
+    Source sheet: 'Tract Eligibility'
+    Key columns:
+        Census Tract     – 10-digit integer GEOID (zero-pad to 11)
+        OZ 2.0 Eligible?.1 – 0 = not eligible, 1 = MFI-only, 2 = both tests
+    """
+    print(f"Reading {OZ_FILE.name} (sheet: 'Tract Eligibility')…")
+    df = pd.read_excel(OZ_FILE, sheet_name="Tract Eligibility",
+                       dtype={"Census Tract": object})
+
+    df["geoid"]       = df["Census Tract"].astype(str).str.zfill(11)
+    df["oz2_score"]   = pd.to_numeric(df["OZ 2.0 Eligible?.1"], errors="coerce").fillna(0).astype(int)
+    df["oz2_eligible"] = df["oz2_score"] > 0
+
+    # Validate GEOID length
+    bad = df[df["geoid"].str.len() != 11]
+    if len(bad):
+        print(f"  WARNING: {len(bad)} rows with unexpected GEOID length — skipping")
+        df = df[df["geoid"].str.len() == 11]
+
+    rows = df[["geoid", "oz2_eligible", "oz2_score"]].values.tolist()
+    print(f"  Loaded {len(rows):,} rows. Inserting into hud.opportunity_zones…")
+
+    with conn.cursor() as cur:
+        cur.execute("TRUNCATE hud.opportunity_zones")
+        cur.executemany(
+            """
+            INSERT INTO hud.opportunity_zones (geoid, oz2_eligible, oz2_score)
+            VALUES (%s, %s, %s)
+            ON CONFLICT (geoid) DO UPDATE
+              SET oz2_eligible = EXCLUDED.oz2_eligible,
+                  oz2_score    = EXCLUDED.oz2_score,
+                  loaded_at    = NOW()
+            """,
+            [(str(r[0]), bool(r[1]), int(r[2])) for r in rows],
+        )
+
+    conn.commit()
+
+    with conn.cursor() as cur:
+        cur.execute("SELECT COUNT(*) FROM hud.opportunity_zones")
+        total = cur.fetchone()[0]
+        cur.execute("SELECT COUNT(*) FROM hud.opportunity_zones WHERE oz2_eligible = TRUE")
+        elig_count = cur.fetchone()[0]
+
+    print(f"  hud.opportunity_zones: {total:,} tracts total, {elig_count:,} OZ 2.0 eligible")
+
+
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 def main():
@@ -183,6 +237,8 @@ def main():
         load_qct(conn)
         print()
         load_cdbg(conn)
+        print()
+        load_oz(conn)
     finally:
         conn.close()
 
