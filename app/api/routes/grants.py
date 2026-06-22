@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 
 from app.db.session import get_db
 from app.services.grants_gov import fetch_solicitation
+from app.services.usa_spending import fetch_funding_history
 
 logger = logging.getLogger(__name__)
 
@@ -246,6 +247,7 @@ def screen_grants(payload: GrantScreenRequest, db: Session = Depends(get_db)):
     matched = _screen_grants(db, demo)
     hud_flags = _fetch_hud_flags(db, geoid)
     matched = _enrich_with_solicitations(matched)
+    funding_history = fetch_funding_history(geoid)
 
     tract_profile = {
         "total_population":  demo.get("total_population"),
@@ -288,4 +290,5 @@ def screen_grants(payload: GrantScreenRequest, db: Session = Depends(get_db)):
         "hud_flags": hud_flags,
         "grants_matched": len(matched),
         "grants": matched,
+        "funding_history": funding_history,
     }

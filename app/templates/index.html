@@ -510,6 +510,149 @@
       font-style: italic;
     }
 
+    /* Federal Funding History section */
+    .funding-section {
+      margin-top: 40px;
+    }
+
+    .funding-card {
+      background: #fff;
+      border: 1px solid var(--gray-200);
+      border-radius: 12px;
+      padding: 24px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    }
+
+    .funding-header {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .funding-title {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--gray-900);
+    }
+
+    .funding-meta {
+      font-size: 0.78rem;
+      color: var(--gray-400);
+    }
+
+    .funding-total {
+      font-size: 2rem;
+      font-weight: 800;
+      color: var(--navy);
+      margin-bottom: 4px;
+      line-height: 1.1;
+    }
+
+    .funding-total-label {
+      font-size: 0.78rem;
+      color: var(--gray-400);
+      margin-bottom: 20px;
+    }
+
+    .funding-cols {
+      display: grid;
+      grid-template-columns: 1fr 1.6fr;
+      gap: 28px;
+    }
+
+    @media (max-width: 700px) {
+      .funding-cols { grid-template-columns: 1fr; }
+    }
+
+    .funding-col-label {
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--gray-400);
+      margin-bottom: 10px;
+    }
+
+    .agency-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 6px 0;
+      border-bottom: 1px solid var(--gray-100);
+      font-size: 0.8375rem;
+      gap: 12px;
+    }
+
+    .agency-row:last-child { border-bottom: none; }
+
+    .agency-name {
+      color: var(--gray-700);
+      flex: 1;
+      min-width: 0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .agency-amount {
+      font-weight: 700;
+      color: var(--gray-900);
+      flex-shrink: 0;
+    }
+
+    .awards-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.8125rem;
+    }
+
+    .awards-table th {
+      text-align: left;
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--gray-400);
+      padding: 0 8px 8px 0;
+      white-space: nowrap;
+    }
+
+    .awards-table td {
+      padding: 7px 8px 7px 0;
+      vertical-align: top;
+      border-top: 1px solid var(--gray-100);
+      color: var(--gray-700);
+    }
+
+    .awards-table td.award-amount {
+      font-weight: 700;
+      color: var(--gray-900);
+      white-space: nowrap;
+    }
+
+    .awards-table td.award-fy {
+      color: var(--gray-400);
+      white-space: nowrap;
+    }
+
+    .award-link {
+      color: var(--blue);
+      text-decoration: none;
+      font-size: 0.75rem;
+    }
+
+    .award-link:hover { text-decoration: underline; }
+
+    .funding-note {
+      font-size: 0.75rem;
+      color: var(--gray-400);
+      margin-top: 16px;
+      font-style: italic;
+    }
+
     /* HUD designation badges */
     .hud-badges {
       display: flex;
@@ -909,7 +1052,81 @@
         ${cards}`;
     }
 
-    resultsEl.innerHTML = profileHtml + grantsHtml;
+    const fundingHtml = renderFundingHistory(data.funding_history);
+    resultsEl.innerHTML = profileHtml + grantsHtml + fundingHtml;
+  }
+
+  // ─── Federal Funding History ──────────────────────────────────────────────
+  function fmtM(n) {
+    if (n == null) return "N/A";
+    const abs = Math.abs(n);
+    if (abs >= 1e9) return (n < 0 ? "-$" : "$") + (abs / 1e9).toFixed(1) + "B";
+    if (abs >= 1e6) return (n < 0 ? "-$" : "$") + (abs / 1e6).toFixed(1) + "M";
+    if (abs >= 1e3) return (n < 0 ? "-$" : "$") + (abs / 1e3).toFixed(0) + "K";
+    return (n < 0 ? "-$" : "$") + abs.toFixed(0);
+  }
+
+  function renderFundingHistory(fh) {
+    if (!fh) return "";
+
+    const agencyRows = (fh.agency_breakdown || [])
+      .filter(a => a.amount > 0)
+      .slice(0, 8)
+      .map(a => `
+        <div class="agency-row">
+          <span class="agency-name" title="${a.agency}">${a.agency.replace("Department of ", "Dept. of ")}</span>
+          <span class="agency-amount">${fmtM(a.amount)}</span>
+        </div>`).join("");
+
+    const awardRows = (fh.top_awards || []).map(a => {
+      const link = a.url
+        ? `<br><a class="award-link" href="${a.url}" target="_blank" rel="noopener noreferrer">View on USASpending ↗</a>`
+        : "";
+      const desc = a.description ? `<div style="color:var(--gray-400);font-size:0.75rem;margin-top:2px">${a.description}</div>` : "";
+      return `
+        <tr>
+          <td>${a.recipient}${desc}${link}</td>
+          <td class="award-amount">${fmtCurrency(a.amount)}</td>
+          <td>${a.cfda || "—"}</td>
+          <td class="award-fy">${a.fiscal_year ? "FY" + a.fiscal_year : "—"}</td>
+        </tr>`;
+    }).join("");
+
+    return `
+      <div class="funding-section">
+        <div class="section-label">Federal Funding History</div>
+        <div class="funding-card">
+          <div class="funding-header">
+            <span class="funding-title">${fh.county_label}</span>
+            <span class="funding-meta">${fh.fy_range} &middot; place of performance</span>
+          </div>
+          <div class="funding-total">${fmtM(fh.total_awarded)}</div>
+          <div class="funding-total-label">Total federal grants awarded</div>
+          <div class="funding-cols">
+            <div>
+              <div class="funding-col-label">By Agency</div>
+              ${agencyRows}
+            </div>
+            <div>
+              <div class="funding-col-label">Top Awards</div>
+              <table class="awards-table">
+                <thead>
+                  <tr>
+                    <th>Recipient</th>
+                    <th>Amount</th>
+                    <th>CFDA</th>
+                    <th>FY</th>
+                  </tr>
+                </thead>
+                <tbody>${awardRows}</tbody>
+              </table>
+            </div>
+          </div>
+          <div class="funding-note">
+            Data covers all federal grant awards in ${fh.county_label} &mdash; county-level (census tract filtering not available via USASpending API). Source: USASpending.gov.
+          </div>
+        </div>
+      </div>`;
   }
 
   // ─── Main flow ────────────────────────────────────────────────────────────
