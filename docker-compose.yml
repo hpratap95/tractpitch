@@ -1,0 +1,41 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgis/postgis:15-3.4-alpine
+    container_name: tractpitch_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-tractpitch}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-tractpitch_dev}
+      POSTGRES_DB: ${POSTGRES_DB:-tractpitch}
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./migrations:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tractpitch"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: tractpitch_api
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://tractpitch:tractpitch_dev@db:5432/tractpitch
+    ports:
+      - "8001:8000"
+    volumes:
+      - ./app:/app/app
+    depends_on:
+      db:
+        condition: service_healthy
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+volumes:
+  postgres_data:
