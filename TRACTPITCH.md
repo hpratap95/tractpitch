@@ -73,7 +73,7 @@ STRIPE_SECRET_KEY=sk_test_...
 
 ## Grant Database
 
-20+ programs are seeded in `grants.federal_grants` — 17 federal, 3 Minnesota state.
+29 programs are seeded in `grants.federal_grants` — 17 federal, 3 Minnesota state, 9 Iowa/Illinois state.
 
 Eligibility is determined by matching tract demographics against threshold columns on each grant:
 
@@ -124,6 +124,8 @@ Load/refresh via `scripts/load_hud_data.py`.
 
 **USASpending caching:** 24-hour in-memory cache per county. Data is county-level only — census tract filtering is not available via the USASpending API.
 
+**Competitiveness caching:** 24-hour in-memory cache per (CFDA, state). Formula grants (14.218/14.239/84.010/17.258) are always skipped — no competitive awards data exists for them.
+
 ---
 
 ## API
@@ -134,6 +136,7 @@ Load/refresh via `scripts/load_hud_data.py`.
 | `GET` | `/api/v1/geocode?address=...` | Address → lat/lon (Census + Nominatim fallback) |
 | `POST` | `/api/v1/grants/screen` | Screen grants for a lat/lon or GEOID |
 | `POST` | `/api/v1/grants/screen` (format: pdf) | Same, returns downloadable PDF |
+| `GET` | `/api/v1/grants/competitiveness?cfda=&state_fips=` | National + state competitive award stats for a CFDA program (24h cached) |
 | `POST` | `/api/v1/waitlist` | Save email to Pro plan waitlist |
 | `POST` | `/api/v1/subscribe` | Create Stripe Checkout Session, returns `checkout_url` |
 
@@ -167,8 +170,9 @@ The "Start Free Trial" button on the landing page calls `POST /api/v1/subscribe`
 
 | File | Description |
 |---|---|
-| `migrations/001_schema.sql` | All schemas, tables, indexes, and seed data |
+| `migrations/001_schema.sql` | All schemas, tables, indexes, and seed data (including all 29 grant programs) |
 | `migrations/002_waitlist.sql` | `public.waitlist` table for Pro plan email capture |
+| `migrations/003_grant_integrity.sql` | SAM.gov verification, eligibility source attribution, formula grant local contacts |
 
 ---
 
@@ -186,6 +190,12 @@ The "Start Free Trial" button on the landing page calls `POST /api/v1/subscribe`
 
 | Date | Change |
 |---|---|
+| 2026-07-09 | Added **competitiveness indicator** — each grant card lazy-loads national award count, avg/max award size, and state-level award count from USASpending.gov (24h cached, skips formula grants) |
+| 2026-07-09 | Added `GET /api/v1/grants/competitiveness` endpoint with concurrent USASpending calls per CFDA |
+| 2026-07-09 | Added **9 Iowa and Illinois state grant programs** (Iowa CDBG, Iowa Housing Trust Fund, Iowa HOME-ARP, Illinois CDBG ×2, IHDA RHSP, IHDA PSH, Illinois EEC, plus subrecipient notes) |
+| 2026-07-09 | **Grant integrity pass**: cross-referenced all 20 programs against SAM.gov Assistance Listings; deactivated 3 inactive programs (59.049, 66.306, 14.408); corrected 10.580 name |
+| 2026-07-09 | Added eligibility criteria source attribution to each grant card (e.g. "HUD CPD Notice 2024-02") |
+| 2026-07-09 | Added local contact resolution for formula grants — CDBG, HOME, WIOA, Title I contacts keyed by state |
 | 2026-07-09 | Added **Share Report** button — copies a `?q=<address>` deep-link URL to clipboard; recipient opens it and the screener auto-runs |
 | 2026-07-09 | Added **legal disclaimer** to every result page: research-use-only notice with pointers to Grants.gov and agency websites |
 | 2026-07-09 | Screener layout polish for shared-screen demos: tighter topbar/content padding, wider `max-width`, responsive address grid for narrow viewports |
@@ -198,7 +208,6 @@ The "Start Free Trial" button on the landing page calls `POST /api/v1/subscribe`
 ## Roadmap
 
 - Complete Stripe integration testing with real test keys
-- Add Iowa and Illinois state-specific grant programs for the Quad Cities market
 - Expand to additional metros (requires ETL run per new county set)
 - User accounts — save searches, email alerts when deadlines open
 - Narrative generation — auto-written grant narrative paragraphs from tract demographics
