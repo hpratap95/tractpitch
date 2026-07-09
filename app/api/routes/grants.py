@@ -70,7 +70,8 @@ def _fetch_demographics(db: Session, geoid: str, vintage: int) -> dict:
             d.pct_hispanic,
             d.pct_asian_alone,
             ct.name AS tract_name,
-            ct.state_fips
+            ct.state_fips,
+            ct.county_fips
         FROM demo.tract_demographics d
         JOIN geo.census_tract ct ON ct.geoid = d.geoid
         WHERE d.geoid = :geoid AND d.acs_vintage = :vintage
@@ -148,7 +149,11 @@ def _screen_grants(db: Session, demo: dict) -> list[dict]:
             min_pct_renter,
             min_unemployment,
             min_population,
-            max_pct_bachelors
+            max_pct_bachelors,
+            criteria_source,
+            sam_status,
+            sam_verified_date::text AS sam_verified_date,
+            local_contacts
         FROM grants.federal_grants
         WHERE is_active = TRUE
           AND (state_fips IS NULL OR state_fips = :tract_state_fips)
@@ -162,10 +167,17 @@ def _screen_grants(db: Session, demo: dict) -> list[dict]:
         ORDER BY program_name
     """), params).mappings().all()
 
+    state_fips = demo.get("state_fips")
+
     results = []
     for row in rows:
         g = dict(row)
         g["matched_criteria"] = _build_match_reasons(g, demo, pct_minority, unemployment)
+
+        # Resolve local contact for this tract's state
+        local_contacts = g.pop("local_contacts", None) or {}
+        g["local_contact"] = local_contacts.get(state_fips) if state_fips else None
+
         # Strip threshold columns from the response payload
         for col in (
             "min_poverty_rate", "max_median_hh_income", "min_pct_minority",

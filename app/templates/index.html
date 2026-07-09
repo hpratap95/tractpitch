@@ -753,6 +753,56 @@
     .btn-secondary:hover { background: var(--gray-100); border-color: var(--gray-400); }
     .btn-secondary:disabled { opacity: 0.5; cursor: not-allowed; }
 
+    /* Criteria source tag */
+    .grant-source {
+      font-size: 0.72rem;
+      color: var(--gray-400);
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .grant-source strong {
+      color: var(--gray-600);
+      font-weight: 600;
+    }
+
+    /* Local contact block (formula grants) */
+    .local-contact {
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      border-radius: 7px;
+      padding: 10px 14px;
+      margin-top: 10px;
+    }
+
+    .local-contact-label {
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #1d4ed8;
+      margin-bottom: 5px;
+    }
+
+    .local-contact-name {
+      font-size: 0.8375rem;
+      font-weight: 600;
+      color: #1e3a8a;
+    }
+
+    .local-contact-meta {
+      font-size: 0.775rem;
+      color: #1d4ed8;
+      margin-top: 3px;
+      line-height: 1.5;
+    }
+
+    .local-contact-meta a {
+      color: #1d4ed8;
+    }
+
     /* Legal disclaimer */
     .legal-disclaimer {
       margin-top: 28px;
@@ -1074,6 +1124,7 @@
   function renderSolicitation(sol) {
     if (!sol) return "";
     if (sol.formula) {
+      // Local contact is rendered separately in renderGrant; just return the label here
       return `<span class="sol-formula">Formula grant &mdash; apply locally</span>`;
     }
     const label = sol.deadline
@@ -1084,6 +1135,21 @@
       ? `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`
       : `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
     return `<a class="sol-badge ${cls}" href="${sol.url}" target="_blank" rel="noopener noreferrer">${icon}${label} ↗</a>`;
+  }
+
+  function renderLocalContact(lc) {
+    if (!lc) return "";
+    const phone = lc.phone ? `<span>&nbsp;·&nbsp;${lc.phone}</span>` : "";
+    const link = lc.url
+      ? `&nbsp;·&nbsp;<a href="${lc.url}" target="_blank" rel="noopener noreferrer">Website ↗</a>`
+      : "";
+    const note = lc.note ? `<div style="margin-top:3px;font-style:italic">${lc.note}</div>` : "";
+    return `
+      <div class="local-contact">
+        <div class="local-contact-label">Local Contact</div>
+        <div class="local-contact-name">${lc.name}</div>
+        <div class="local-contact-meta">${phone}${link}${note}</div>
+      </div>`;
   }
 
   function renderGrant(g) {
@@ -1104,6 +1170,15 @@
 
     const solBadge = renderSolicitation(g.solicitation);
 
+    const sourceHtml = g.criteria_source ? `
+      <div class="grant-source">
+        <strong>Eligibility criteria:</strong>&nbsp;${g.criteria_source}
+      </div>` : "";
+
+    const localContactHtml = (g.solicitation && g.solicitation.formula && g.local_contact)
+      ? renderLocalContact(g.local_contact)
+      : "";
+
     return `
       <div class="grant-card">
         <div class="grant-card-header">
@@ -1111,8 +1186,10 @@
           <div class="grant-badges">${grantTypeBadge(g.grant_type)}${solBadge ? '&nbsp;' + solBadge : ''}</div>
         </div>
         <div class="grant-agency">${g.agency || ""}${g.program_number ? " &middot; CFDA " + g.program_number : ""}</div>
+        ${sourceHtml}
         <div class="grant-desc">${g.description || ""}</div>
         <div class="grant-meta">${awardLine}${fundingLink}</div>
+        ${localContactHtml}
         ${matchBlock}
       </div>`;
   }
