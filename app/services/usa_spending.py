@@ -256,11 +256,31 @@ def fetch_funding_history(geoid: str) -> Optional[dict]:
 
     filters = _filters(state_abbr, county_fips, start_date, end_date)
 
-    try:
-        total, agency_breakdown = _fetch_agency_breakdown(filters)
-        top_awards = _fetch_top_awards(filters, limit=5)
-    except Exception as exc:
-        logger.warning("USASpending API error for GEOID %s: %s", geoid, exc)
+    # Run both calls independently — if one times out, still return the other.
+    from concurrent.futures import ThreadPoolExecutor, as_completed as _as_completed
+
+    total, agency_breakdown, top_awards = 0.0, [], []
+
+    def _get_agencies(): return _fetch_agency_breakdown(filters)
+    def _get_awards():   return _fetch_top_awards(filters, limit=5)
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        f_agencies = pool.submit(_get_agencies)
+        f_awards   = pool.submit(_get_awards)
+
+        try:
+            total, agency_breakdown = f_agencies.result()
+        except Exception as exc:
+            logger.warning("USASpending agency breakdown failed for %s: %s", geoid, exc)
+
+        try:
+            top_awards = f_awards.result()
+        except Exception as exc:
+            logger.warning("USASpending top awards failed for %s: %s", geoid, exc)
+
+    # Nothing came back at all — cache None to avoid hammering a down API
+    if not agency_breakdown and not top_awards:
+        logger.warning("USASpending returned no data for GEOID %s", geoid)
         _cache[cache_key] = (time.monotonic(), None)
         return None
 
@@ -269,7 +289,7 @@ def fetch_funding_history(geoid: str) -> Optional[dict]:
         "county_fips":       county_fips,
         "state_fips":        state_fips,
         "fy_range":          fy_range,
-        "total_awarded":     round(total, 2),
+        "total_awarded":     round(total, 2) if total else None,
         "agency_breakdown":  agency_breakdown,
         "top_awards":        top_awards,
     }
