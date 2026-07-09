@@ -153,7 +153,8 @@ def _screen_grants(db: Session, demo: dict) -> list[dict]:
             criteria_source,
             sam_status,
             sam_verified_date::text AS sam_verified_date,
-            local_contacts
+            local_contacts,
+            notes
         FROM grants.federal_grants
         WHERE is_active = TRUE
           AND (state_fips IS NULL OR state_fips = :tract_state_fips)

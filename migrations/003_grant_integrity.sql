@@ -9,7 +9,8 @@ ALTER TABLE grants.federal_grants
     ADD COLUMN IF NOT EXISTS sam_status       VARCHAR(30)  DEFAULT 'verified_active',
     ADD COLUMN IF NOT EXISTS sam_verified_date DATE         DEFAULT '2026-07-09',
     ADD COLUMN IF NOT EXISTS criteria_source  VARCHAR(255),
-    ADD COLUMN IF NOT EXISTS local_contacts   JSONB;
+    ADD COLUMN IF NOT EXISTS local_contacts   JSONB,
+    ADD COLUMN IF NOT EXISTS notes            TEXT;
 
 -- ── 1. Deactivate programs that failed SAM.gov verification ──────────────────
 -- 59.049  — SAM isActive=false (archived 2015); CFDA maps to "Small Disadvantaged
@@ -186,3 +187,34 @@ SET local_contacts = '{
   }
 }'::jsonb
 WHERE program_number = '84.010';
+
+-- ── 5. criteria_source for Iowa and Illinois state programs ───────────────────
+-- These programs were inserted after migration 003 was first written.
+-- On fresh deploys, 001 inserts them without criteria_source; 003 sets it here.
+
+UPDATE grants.federal_grants SET criteria_source = 'Iowa CDBG Program Guidelines FY2026 (HUD 80% AMI thresholds)'
+WHERE program_name = 'Iowa CDBG — Community Development & Facilities Fund';
+
+UPDATE grants.federal_grants SET criteria_source = 'Iowa CDBG Program Guidelines FY2026 (HUD 80% AMI thresholds)'
+WHERE program_name = 'Iowa CDBG — Public Services Fund';
+
+UPDATE grants.federal_grants SET criteria_source = 'Iowa State Housing Trust Fund Guidelines FY2025 (80% AMI; 30% AMI set-aside)'
+WHERE program_name = 'Iowa State Housing Trust Fund — Project-Based Program';
+
+UPDATE grants.federal_grants SET criteria_source = 'HUD HOME-ARP Rule (24 CFR Part 92) — qualifying populations defined by housing instability status'
+WHERE program_name = 'Iowa HOME-ARP — Affordable Housing and Supportive Services';
+
+UPDATE grants.federal_grants SET criteria_source = 'DCEO IL CDBG Program Guidelines FY2026 (51% LMI national objective)'
+WHERE program_name = 'Illinois CDBG — Community Revitalization Program';
+
+UPDATE grants.federal_grants SET criteria_source = 'DCEO IL CDBG Program Guidelines FY2026 (51% LMI / 80% AMI household threshold)'
+WHERE program_name = 'Illinois CDBG — Housing Rehabilitation Program';
+
+UPDATE grants.federal_grants SET criteria_source = 'IHDA RHSP Program Guide Dec 2025 (≤30% AMI; 50% set-aside ≤15% AMI)'
+WHERE program_name = 'IHDA Rental Housing Support Program (RHSP)';
+
+UPDATE grants.federal_grants SET criteria_source = 'DCEO EEC Round 2 NOFO FY2026 (SEDI-owned business threshold)'
+WHERE program_name = 'Illinois Economic Empowerment Centers (EEC) Program';
+
+UPDATE grants.federal_grants SET criteria_source = 'IHDA PSH Development Program RFA Round XII 2026 (Illinois Affordable Housing Trust Fund ≤30% AMI threshold)'
+WHERE program_name = 'IHDA Permanent Supportive Housing Development Program';

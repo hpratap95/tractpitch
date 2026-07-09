@@ -73,6 +73,7 @@ CREATE TABLE IF NOT EXISTS grants.federal_grants (
     max_pct_bachelors     NUMERIC(5,2),
     state_fips            CHAR(2),
     is_active             BOOLEAN DEFAULT TRUE,
+    notes                 TEXT,
     created_at            TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -242,3 +243,98 @@ WHERE program_name IN (
     'MN Housing Finance Agency Challenge Program',
     'Metropolitan Council Livable Communities Grant'
 );
+
+-- ── Seed: Iowa and Illinois state grant programs ──────────────────────────────
+
+INSERT INTO grants.federal_grants (
+    program_name, agency, program_number, grant_type, description,
+    max_award_amount, funding_url,
+    min_poverty_rate, max_median_hh_income, min_pct_minority,
+    min_pct_renter, min_unemployment, min_population, max_pct_bachelors,
+    state_fips, notes
+) VALUES
+
+-- Iowa (state_fips = '19')
+
+('Iowa CDBG — Community Development & Facilities Fund',
+ 'Iowa Economic Development Authority (IEDA)',
+ NULL, 'state',
+ 'Funds community infrastructure improvements and facilities serving low-to-moderate income residents in Iowa non-entitlement communities. Eligible projects include daycare centers, senior centers, and community facilities.',
+ 600000,
+ 'https://opportunityiowa.gov/community/community-infrastructure/cdbg-programs/community-development-facilities-fund',
+ NULL, 80000, NULL, NULL, NULL, NULL, NULL,
+ '19', 'Nonprofits apply as subrecipients through local government.'),
+
+('Iowa CDBG — Public Services Fund',
+ 'Iowa Economic Development Authority (IEDA)',
+ NULL, 'state',
+ 'Funds new or expanded public services for low-to-moderate income Iowans, including food pantry operations and homeless service providers in non-entitlement communities. Nonprofits may apply directly as grantees.',
+ 100000,
+ 'https://opportunityiowa.gov/community/community-infrastructure/cdbg-programs/public-services-fund',
+ 15.0, 75000, NULL, NULL, NULL, NULL, NULL,
+ '19', NULL),
+
+('Iowa State Housing Trust Fund — Project-Based Program',
+ 'Iowa Finance Authority',
+ NULL, 'state',
+ 'Rolling grant program for affordable housing development and preservation serving households at or below 80% AMI. Open to nonprofits, housing authorities, developers, and community organizations. At least 30% of funds must target households at or below 30% AMI.',
+ NULL,
+ 'https://opportunityiowa.gov/housing/state-housing-trust-fund-0/project-based-housing-program',
+ NULL, 65000, NULL, 20.0, NULL, NULL, NULL,
+ '19', NULL),
+
+('Iowa HOME-ARP — Affordable Housing and Supportive Services',
+ 'Iowa Finance Authority',
+ NULL, 'state',
+ 'One-time HOME-ARP allocation for affordable rental housing development and supportive services for persons experiencing homelessness or housing instability. Nonprofits, local governments, and for-profit developers eligible. Rental housing development set-aside: $5.65M.',
+ 5650000,
+ 'https://opportunityiowa.gov/housing/homeless-or-risk-homelessness/iowa-home-arp-program',
+ 15.0, 70000, NULL, NULL, NULL, NULL, NULL,
+ '19', NULL),
+
+-- Illinois (state_fips = '17')
+
+('Illinois CDBG — Community Revitalization Program',
+ 'Illinois Dept. of Commerce and Economic Opportunity (DCEO)',
+ NULL, 'state',
+ 'Funds blight elimination, historic preservation, commercial facade improvements, and infrastructure revitalization in low-to-moderate income Illinois non-entitlement communities. Rolling applications accepted until funds exhausted. FY2026 pool: $13M.',
+ 2000000,
+ 'https://dceo.illinois.gov/communitydevelopment/cdbg_programs.html',
+ 15.0, 80000, NULL, NULL, NULL, NULL, NULL,
+ '17', 'Nonprofits apply as subrecipients through local government.'),
+
+('Illinois CDBG — Housing Rehabilitation Program',
+ 'Illinois Dept. of Commerce and Economic Opportunity (DCEO)',
+ NULL, 'state',
+ 'Funds owner-occupied housing rehabilitation for low-to-moderate income homeowners in Illinois non-entitlement communities. Maximum $60,000 per household. Deadline August 27, 2026. FY2026 pool: $15M.',
+ 800000,
+ 'https://dceo.illinois.gov/communitydevelopment/csbghousingrehabilitation.html',
+ 15.0, 80000, NULL, NULL, NULL, NULL, NULL,
+ '17', 'Nonprofits apply as subrecipients through local government.'),
+
+('IHDA Rental Housing Support Program (RHSP)',
+ 'Illinois Housing Development Authority (IHDA)',
+ NULL, 'state',
+ 'Ongoing rental subsidy program for extremely low-income Illinois households at or below 30% AMI. Nonprofits and housing authorities serve as Local Administering Agencies (LAAs), managing subsidized units and coordinating supportive services. 50% of resources reserved for households at or below 15% AMI.',
+ NULL,
+ 'https://www.ihda.org/rental-housing-main/rhsrp/',
+ 20.0, 50000, NULL, 30.0, NULL, NULL, NULL,
+ '17', NULL),
+
+('Illinois Economic Empowerment Centers (EEC) Program',
+ 'Illinois Dept. of Commerce and Economic Opportunity (DCEO)',
+ NULL, 'state',
+ 'Funds nonprofits and community-based organizations to operate Economic Empowerment Centers serving minority-owned, women-owned, veteran-owned, and SEDI entrepreneurs with business development services. Round 2 open on a rolling basis. $2.5M available.',
+ 250000,
+ 'https://dceo.illinois.gov/oe3/econ-empowerment-centers.html',
+ NULL, NULL, 30.0, NULL, NULL, NULL, NULL,
+ '17', NULL),
+
+('IHDA Permanent Supportive Housing Development Program',
+ 'Illinois Housing Development Authority (IHDA)',
+ NULL, 'state',
+ 'Loans and grants for development of permanent supportive housing for extremely low-income Illinoisans at or below 30% AMI with disabilities or complex service needs. Nonprofits and housing authorities eligible. Round XIII expected late 2026.',
+ NULL,
+ 'https://www.ihda.org/developers/supportive-housing/',
+ 20.0, 50000, NULL, 30.0, NULL, NULL, NULL,
+ '17', NULL);
