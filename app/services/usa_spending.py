@@ -38,6 +38,11 @@ _cache: dict[tuple[str, str], tuple[float, Optional[dict]]] = {}
 # Competitiveness cache: (cfda, state_fips) → (timestamp, result)
 _comp_cache: dict[tuple[str, str], tuple[float, Optional[dict]]] = {}
 
+# National-only competitiveness cache: cfda → (timestamp, nat_count, amounts)
+# Keyed by CFDA alone — national data is state-independent, so one fetch
+# serves all states and avoids redundant API calls.
+_nat_cache: dict[str, tuple[float, int, list]] = {}
+
 # ── FIPS → state abbreviation ─────────────────────────────────────────────────
 
 _STATE_ABBR: dict[str, str] = {
@@ -104,8 +109,8 @@ def _start_date_to_fy(date_str: Optional[str]) -> Optional[int]:
 
 # ── API helpers ───────────────────────────────────────────────────────────────
 
-def _post(path: str, body: dict) -> dict:
-    resp = httpx.post(f"{BASE_URL}{path}", json=body, timeout=12.0)
+def _post(path: str, body: dict, timeout: float = 45.0) -> dict:
+    resp = httpx.post(f"{BASE_URL}{path}", json=body, timeout=timeout)
     resp.raise_for_status()
     return resp.json()
 
@@ -379,7 +384,7 @@ def fetch_program_competitiveness(cfda: str, state_fips: str) -> Optional[dict]:
             return val
 
     # Most recent *complete* fiscal year (current FY - 1)
-    recent_fy   = _current_fy() - 1
+    recent_fy    = _current_fy() - 1
     recent_start = f"{recent_fy - 1}-10-01"
     recent_end   = f"{recent_fy}-09-30"
     fy_label     = f"FY{recent_fy}"
@@ -401,26 +406,42 @@ def fetch_program_competitiveness(cfda: str, state_fips: str) -> Optional[dict]:
         "place_of_performance_locations": [{"country": "USA", "state": state_abbr}],
     }
 
-    # Run all three calls concurrently
     from concurrent.futures import ThreadPoolExecutor, as_completed
-    results: dict = {}
 
-    def _a(): return ("nat_count",   _award_count(nat_base_filters))
-    def _b(): return ("amounts",     _top_amounts(nat_base_filters, limit=50))
-    def _c(): return ("state_count", _award_count(state_filters))
+    # National data is state-independent — check the national cache first.
+    # This lets Iowa and Minnesota share one USASpending call per CFDA.
+    nat_cached = _nat_cache.get(cfda)
+    if nat_cached and time.monotonic() - nat_cached[0] < CACHE_TTL:
+        nat_count, amounts = nat_cached[1], nat_cached[2]
+        # Only need the state count call
+        state_count = _award_count(state_filters)
+    else:
+        results: dict = {}
 
-    with ThreadPoolExecutor(max_workers=3) as pool:
-        futures = [pool.submit(f) for f in (_a, _b, _c)]
-        for fut in as_completed(futures):
-            try:
-                k, v = fut.result()
-                results[k] = v
-            except Exception as exc:
-                logger.warning("Competitiveness call failed: %s", exc)
+        def _a(): return ("nat_count",   _award_count(nat_base_filters))
+        def _b(): return ("amounts",     _top_amounts(nat_base_filters, limit=50))
+        def _c(): return ("state_count", _award_count(state_filters))
 
-    nat_count   = results.get("nat_count", 0)
-    amounts     = results.get("amounts", [])
-    state_count = results.get("state_count", 0)
+        with ThreadPoolExecutor(max_workers=3) as pool:
+            futures = [pool.submit(f) for f in (_a, _b, _c)]
+            for fut in as_completed(futures):
+                try:
+                    k, v = fut.result()
+                    results[k] = v
+                except Exception as exc:
+                    logger.warning("Competitiveness call failed: %s", exc)
+
+        nat_count   = results.get("nat_count", 0)
+        amounts     = results.get("amounts", [])
+        state_count = results.get("state_count", 0)
+
+        # If nat_count timed out (0) but amounts succeeded, use len(amounts)
+        # as a minimum count — we know there are at least that many awards.
+        if nat_count == 0 and amounts:
+            nat_count = len(amounts)
+
+        # Cache national data by CFDA alone for reuse across states
+        _nat_cache[cfda] = (time.monotonic(), nat_count, amounts)
 
     # No national data at all → don't surface anything
     if nat_count == 0 and not amounts:
@@ -428,7 +449,7 @@ def fetch_program_competitiveness(cfda: str, state_fips: str) -> Optional[dict]:
         return None
 
     national_max = amounts[0] if amounts else None
-    # Exact average when we captured all awards; None when sample is too small to trust
+    # Exact average only when we captured the full population (count ≤ sample size)
     national_avg = (sum(amounts) / nat_count) if (nat_count > 0 and nat_count <= len(amounts)) else None
 
     result = {

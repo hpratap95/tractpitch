@@ -265,7 +265,6 @@ def screen_grants(payload: GrantScreenRequest, db: Session = Depends(get_db)):
     matched = _screen_grants(db, demo)
     hud_flags = _fetch_hud_flags(db, geoid)
     matched = _enrich_with_solicitations(matched)
-    funding_history = fetch_funding_history(geoid)
 
     tract_profile = {
         "total_population":  demo.get("total_population"),
@@ -308,8 +307,22 @@ def screen_grants(payload: GrantScreenRequest, db: Session = Depends(get_db)):
         "hud_flags": hud_flags,
         "grants_matched": len(matched),
         "grants": matched,
-        "funding_history": funding_history,
     }
+
+
+@router.get("/funding-history")
+def get_funding_history(
+    geoid: str = Query(..., description="11-digit census tract GEOID"),
+):
+    """
+    Return federal grant funding history for the county containing the given tract.
+    Results are cached per county for 24 hours. Lazy-loaded by the frontend
+    after the main screen response renders.
+    """
+    result = fetch_funding_history(geoid)
+    if result is None:
+        raise HTTPException(status_code=404, detail="No funding history available.")
+    return result
 
 
 @router.get("/competitiveness")

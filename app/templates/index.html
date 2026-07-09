@@ -1321,18 +1321,35 @@
         ${cards}`;
     }
 
-    const fundingHtml = renderFundingHistory(data.funding_history);
+    const fundingPlaceholder = `<div id="funding-history-section"></div>`;
     const disclaimerHtml = `
       <div class="legal-disclaimer">
         <strong>Research Use Only:</strong> TractPitch screens eligibility based on published ACS 2022 demographic thresholds. Results are for research purposes only and do not constitute a guarantee of program eligibility. Verify current requirements at Grants.gov and agency websites before applying.
       </div>`;
-    resultsEl.innerHTML = profileHtml + grantsHtml + fundingHtml + disclaimerHtml;
+    resultsEl.innerHTML = profileHtml + grantsHtml + fundingPlaceholder + disclaimerHtml;
 
-    // Lazy-load competitiveness indicators after DOM is painted
-    if (data.grants && data.grants.length > 0 && data.geoid) {
-      const stateFips = data.geoid.slice(0, 2);
-      // Use setTimeout to yield to browser paint first
-      setTimeout(() => loadCompetitivenessForGrants(data.grants, stateFips), 0);
+    // Lazy-load competitiveness and funding history after DOM is painted
+    setTimeout(() => {
+      if (data.grants && data.grants.length > 0 && data.geoid) {
+        const stateFips = data.geoid.slice(0, 2);
+        loadCompetitivenessForGrants(data.grants, stateFips);
+      }
+      if (data.geoid) {
+        loadFundingHistory(data.geoid);
+      }
+    }, 0);
+  }
+
+  async function loadFundingHistory(geoid) {
+    const el = document.getElementById("funding-history-section");
+    if (!el) return;
+    try {
+      const resp = await fetch(`/api/v1/grants/funding-history?geoid=${encodeURIComponent(geoid)}`);
+      if (!resp.ok) return;
+      const fh = await resp.json();
+      el.innerHTML = renderFundingHistory(fh);
+    } catch (_) {
+      // Silently skip on network errors
     }
   }
 
@@ -1347,7 +1364,7 @@
   }
 
   function renderFundingHistory(fh) {
-    if (!fh) return "";
+    if (!fh) return "";  // guard kept for safety
 
     const agencyRows = (fh.agency_breakdown || [])
       .filter(a => a.amount > 0)
