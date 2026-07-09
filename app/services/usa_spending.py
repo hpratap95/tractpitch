@@ -1,5 +1,7 @@
 """
 USASpending Historical Awards — Layer 4 of TractPitch grant enrichment.
+Also provides per-program competitiveness data (Layer 5) via
+fetch_program_competitiveness().
 
 Fetches federal grant awards placed in the same county as the given census
 tract, covering the last 3 fiscal years.
@@ -32,6 +34,9 @@ AWARD_TYPES = ["02", "03", "04", "05"]   # grants only
 
 # In-memory cache: (state_fips, county_fips) → (timestamp, result)
 _cache: dict[tuple[str, str], tuple[float, Optional[dict]]] = {}
+
+# Competitiveness cache: (cfda, state_fips) → (timestamp, result)
+_comp_cache: dict[tuple[str, str], tuple[float, Optional[dict]]] = {}
 
 # ── FIPS → state abbreviation ─────────────────────────────────────────────────
 
@@ -265,4 +270,176 @@ def fetch_funding_history(geoid: str) -> Optional[dict]:
     }
 
     _cache[cache_key] = (time.monotonic(), result)
+    return result
+
+
+# ── Program competitiveness (Layer 5) ────────────────────────────────────────
+
+# CFDA numbers treated as formula grants — no competitive awards to count.
+# Kept in sync with grants_gov.py FORMULA_CFDAS.
+_FORMULA_CFDAS: frozenset[str] = frozenset({
+    "14.218",  # CDBG
+    "14.239",  # HOME
+    "84.010",  # Title I
+    "17.258",  # WIOA Adult
+})
+
+_STATE_NAMES: dict[str, str] = {
+    "01": "Alabama",      "02": "Alaska",       "04": "Arizona",
+    "05": "Arkansas",     "06": "California",   "08": "Colorado",
+    "09": "Connecticut",  "10": "Delaware",     "11": "D.C.",
+    "12": "Florida",      "13": "Georgia",      "15": "Hawaii",
+    "16": "Idaho",        "17": "Illinois",     "18": "Indiana",
+    "19": "Iowa",         "20": "Kansas",       "21": "Kentucky",
+    "22": "Louisiana",    "23": "Maine",        "24": "Maryland",
+    "25": "Massachusetts","26": "Michigan",     "27": "Minnesota",
+    "28": "Mississippi",  "29": "Missouri",     "30": "Montana",
+    "31": "Nebraska",     "32": "Nevada",       "33": "New Hampshire",
+    "34": "New Jersey",   "35": "New Mexico",   "36": "New York",
+    "37": "North Carolina","38": "North Dakota","39": "Ohio",
+    "40": "Oklahoma",     "41": "Oregon",       "42": "Pennsylvania",
+    "44": "Rhode Island", "45": "South Carolina","46": "South Dakota",
+    "47": "Tennessee",    "48": "Texas",        "49": "Utah",
+    "50": "Vermont",      "51": "Virginia",     "53": "Washington",
+    "54": "West Virginia","55": "Wisconsin",    "56": "Wyoming",
+}
+
+
+def _award_count(filters: dict) -> int:
+    """
+    Call /search/spending_by_award_count/ and return the grants sub-count.
+    Returns 0 on any error.
+    """
+    try:
+        data = _post("/search/spending_by_award_count/", {"filters": filters})
+        return int((data.get("results") or {}).get("grants", 0))
+    except Exception as exc:
+        logger.debug("award_count failed: %s", exc)
+        return 0
+
+
+def _top_amounts(filters: dict, limit: int = 50) -> list[float]:
+    """
+    Fetch top `limit` award amounts (sorted desc) for a filter set.
+    Returns empty list on any error.
+    """
+    try:
+        data = _post("/search/spending_by_award/", {
+            "filters": filters,
+            "fields":  ["Award Amount"],
+            "limit":   limit,
+            "page":    1,
+            "sort":    "Award Amount",
+            "order":   "desc",
+        })
+        return [
+            r["Award Amount"]
+            for r in (data.get("results") or [])
+            if (r.get("Award Amount") or 0) > 0
+        ]
+    except Exception as exc:
+        logger.debug("top_amounts failed: %s", exc)
+        return []
+
+
+def fetch_program_competitiveness(cfda: str, state_fips: str) -> Optional[dict]:
+    """
+    Return competitive award statistics for a CFDA program.
+
+    Makes three concurrent USASpending calls:
+      A. spending_by_award_count  (national, most recent complete FY) → count
+      B. spending_by_award top-50 (national, most recent complete FY) → max + avg
+      C. spending_by_award_count  (state, last 3 complete FY)         → state count
+
+    Returns None for formula grants, unknown states, or when the API
+    returns no data (caller should suppress the UI block).
+
+    Result keys:
+        national_count  int   — awards nationally in fy_label
+        national_max    float — largest single award in fy_label (or None)
+        national_avg    float — avg award in fy_label; exact when national_count ≤ 50,
+                                None when count > 50 and sample is insufficient
+        state_count     int   — awards in this state over fy_range
+        state_name      str   — e.g. "Iowa"
+        fy_label        str   — e.g. "FY2025"
+        fy_range        str   — e.g. "FY2023–FY2025"
+    """
+    if cfda in _FORMULA_CFDAS:
+        return None
+
+    state_abbr = _STATE_ABBR.get(state_fips)
+    state_name = _STATE_NAMES.get(state_fips)
+    if not state_abbr:
+        return None
+
+    cache_key = (cfda, state_fips)
+    if cache_key in _comp_cache:
+        ts, val = _comp_cache[cache_key]
+        if time.monotonic() - ts < CACHE_TTL:
+            return val
+
+    # Most recent *complete* fiscal year (current FY - 1)
+    recent_fy   = _current_fy() - 1
+    recent_start = f"{recent_fy - 1}-10-01"
+    recent_end   = f"{recent_fy}-09-30"
+    fy_label     = f"FY{recent_fy}"
+
+    # 3-year state window (last 3 complete FY)
+    state_start_fy = recent_fy - 2
+    state_start    = f"{state_start_fy - 1}-10-01"
+    fy_range       = f"FY{state_start_fy}–FY{recent_fy}"
+
+    nat_base_filters = {
+        "award_type_codes": AWARD_TYPES,
+        "program_numbers":  [cfda],
+        "time_period":      [{"start_date": recent_start, "end_date": recent_end}],
+    }
+    state_filters = {
+        "award_type_codes": AWARD_TYPES,
+        "program_numbers":  [cfda],
+        "time_period":      [{"start_date": state_start, "end_date": recent_end}],
+        "place_of_performance_locations": [{"country": "USA", "state": state_abbr}],
+    }
+
+    # Run all three calls concurrently
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    results: dict = {}
+
+    def _a(): return ("nat_count",   _award_count(nat_base_filters))
+    def _b(): return ("amounts",     _top_amounts(nat_base_filters, limit=50))
+    def _c(): return ("state_count", _award_count(state_filters))
+
+    with ThreadPoolExecutor(max_workers=3) as pool:
+        futures = [pool.submit(f) for f in (_a, _b, _c)]
+        for fut in as_completed(futures):
+            try:
+                k, v = fut.result()
+                results[k] = v
+            except Exception as exc:
+                logger.warning("Competitiveness call failed: %s", exc)
+
+    nat_count   = results.get("nat_count", 0)
+    amounts     = results.get("amounts", [])
+    state_count = results.get("state_count", 0)
+
+    # No national data at all → don't surface anything
+    if nat_count == 0 and not amounts:
+        _comp_cache[cache_key] = (time.monotonic(), None)
+        return None
+
+    national_max = amounts[0] if amounts else None
+    # Exact average when we captured all awards; None when sample is too small to trust
+    national_avg = (sum(amounts) / nat_count) if (nat_count > 0 and nat_count <= len(amounts)) else None
+
+    result = {
+        "national_count": nat_count,
+        "national_max":   national_max,
+        "national_avg":   national_avg,
+        "state_count":    state_count,
+        "state_name":     state_name,
+        "fy_label":       fy_label,
+        "fy_range":       fy_range,
+    }
+
+    _comp_cache[cache_key] = (time.monotonic(), result)
     return result

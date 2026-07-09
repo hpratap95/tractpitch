@@ -3,7 +3,7 @@ import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Literal, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, model_validator
 from sqlalchemy import text
@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 
 from app.db.session import get_db
 from app.services.grants_gov import fetch_solicitation
-from app.services.usa_spending import fetch_funding_history
+from app.services.usa_spending import fetch_funding_history, fetch_program_competitiveness
 
 logger = logging.getLogger(__name__)
 
@@ -310,3 +310,20 @@ def screen_grants(payload: GrantScreenRequest, db: Session = Depends(get_db)):
         "grants": matched,
         "funding_history": funding_history,
     }
+
+
+@router.get("/competitiveness")
+def get_competitiveness(
+    cfda: str = Query(..., description="CFDA program number, e.g. '21.020'"),
+    state_fips: str = Query(..., description="2-digit state FIPS code, e.g. '19'"),
+):
+    """
+    Return competitive award statistics for a CFDA program in the given state.
+
+    Fetches from USASpending.gov and caches per (cfda, state_fips) for 24h.
+    Returns 404 for formula grants, unknown states, or when USASpending has no data.
+    """
+    result = fetch_program_competitiveness(cfda, state_fips)
+    if result is None:
+        raise HTTPException(status_code=404, detail="No competitiveness data available.")
+    return result

@@ -768,6 +768,27 @@
       font-weight: 600;
     }
 
+    /* Competitiveness indicator */
+    .competitiveness-block {
+      font-size: 0.72rem;
+      color: var(--gray-400);
+      margin-top: 10px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      flex-wrap: wrap;
+    }
+
+    .competitiveness-block .comp-label {
+      font-weight: 600;
+      color: var(--gray-600);
+    }
+
+    .competitiveness-block .comp-dot {
+      color: var(--gray-300);
+      margin: 0 2px;
+    }
+
     /* Local contact block (formula grants) */
     .local-contact {
       background: #eff6ff;
@@ -1185,6 +1206,10 @@
       ? renderLocalContact(g.local_contact)
       : "";
 
+    const compId = g.program_number
+      ? `comp-${g.program_number.replace(".", "_")}`
+      : "";
+
     return `
       <div class="grant-card">
         <div class="grant-card-header">
@@ -1198,7 +1223,56 @@
         <div class="grant-meta">${awardLine}${fundingLink}</div>
         ${localContactHtml}
         ${matchBlock}
+        ${compId ? `<div id="${compId}" class="competitiveness-block" style="display:none"></div>` : ""}
       </div>`;
+  }
+
+  function renderCompetitiveness(comp) {
+    const parts = [];
+    parts.push(`<span class="comp-label">Competitiveness:</span>`);
+
+    if (comp.national_count != null) {
+      parts.push(`${comp.national_count.toLocaleString()} awards nationally in ${comp.fy_label}`);
+    }
+
+    const avgStr = comp.national_avg != null ? fmtM(comp.national_avg) + " avg vs " : "";
+    const maxStr = comp.national_max != null ? fmtM(comp.national_max) + " max" : "";
+    if (avgStr || maxStr) {
+      parts.push(`<span class="comp-dot">·</span>${avgStr}${maxStr}`);
+    }
+
+    if (comp.state_count != null && comp.state_name) {
+      parts.push(`<span class="comp-dot">·</span>${comp.state_count} award${comp.state_count !== 1 ? "s" : ""} in ${comp.state_name} (${comp.fy_range})`);
+    }
+
+    return parts.join(" ");
+  }
+
+  async function loadCompetitivenessForGrants(grants, stateFips) {
+    // Formula grant CFDA numbers — skip them (no competitive awards)
+    const formulaCfdas = new Set(["14.218", "14.239", "84.010", "17.258"]);
+
+    const eligible = grants.filter(g =>
+      g.program_number && !formulaCfdas.has(g.program_number)
+    );
+
+    await Promise.allSettled(eligible.map(async (g) => {
+      const compId = `comp-${g.program_number.replace(".", "_")}`;
+      const el = document.getElementById(compId);
+      if (!el) return;
+
+      try {
+        const resp = await fetch(
+          `/api/v1/grants/competitiveness?cfda=${encodeURIComponent(g.program_number)}&state_fips=${encodeURIComponent(stateFips)}`
+        );
+        if (!resp.ok) return; // 404 or no data → leave hidden
+        const comp = await resp.json();
+        el.innerHTML = renderCompetitiveness(comp);
+        el.style.display = "flex";
+      } catch (_) {
+        // Silently skip on network errors
+      }
+    }));
   }
 
   function renderResults(data) {
@@ -1253,6 +1327,13 @@
         <strong>Research Use Only:</strong> TractPitch screens eligibility based on published ACS 2022 demographic thresholds. Results are for research purposes only and do not constitute a guarantee of program eligibility. Verify current requirements at Grants.gov and agency websites before applying.
       </div>`;
     resultsEl.innerHTML = profileHtml + grantsHtml + fundingHtml + disclaimerHtml;
+
+    // Lazy-load competitiveness indicators after DOM is painted
+    if (data.grants && data.grants.length > 0 && data.geoid) {
+      const stateFips = data.geoid.slice(0, 2);
+      // Use setTimeout to yield to browser paint first
+      setTimeout(() => loadCompetitivenessForGrants(data.grants, stateFips), 0);
+    }
   }
 
   // ─── Federal Funding History ──────────────────────────────────────────────
