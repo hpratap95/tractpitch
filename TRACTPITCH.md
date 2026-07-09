@@ -1,6 +1,6 @@
 # TractPitch
 **Grant Eligibility Screener — Project Doc**
-*Last updated: June 23, 2026*
+*Last updated: July 9, 2026*
 
 ---
 
@@ -32,6 +32,7 @@ These are the two active markets. Expanding to additional metros requires runnin
 7. Matched grants are enriched with live Grants.gov solicitation data (open deadlines, forecasted, formula)
 8. Federal funding history for the county is fetched from USASpending.gov (FY2022–FY2026)
 9. User can download a PDF report with the full tract profile and grant list
+10. User can copy a shareable deep-link URL that pre-fills the form and auto-runs the screener for that address
 
 ---
 
@@ -40,7 +41,7 @@ These are the two active markets. Expanding to additional metros requires runnin
 | URL | Description |
 |---|---|
 | `/` | Landing page — hero search, features, pricing |
-| `/screener` | Grant screener app |
+| `/screener` | Grant screener app (supports `?q=<address>` deep-link for pre-filled searches) |
 | `/subscribe/success` | Stripe checkout success page |
 | `/subscribe/cancel` | Stripe checkout cancel page |
 
@@ -178,6 +179,19 @@ The "Start Free Trial" button on the landing page calls `POST /api/v1/subscribe`
 3. Load the tract boundaries and demographics into TractPitch's DB (port 5433)
 4. Add the new state to the state dropdown in `app/templates/index.html` and update the disclaimer banner
 5. Add any state-specific grant programs to `grants.federal_grants` with the appropriate `state_fips`
+
+---
+
+## Recent Changes
+
+| Date | Change |
+|---|---|
+| 2026-07-09 | Added **Share Report** button — copies a `?q=<address>` deep-link URL to clipboard; recipient opens it and the screener auto-runs |
+| 2026-07-09 | Added **legal disclaimer** to every result page: research-use-only notice with pointers to Grants.gov and agency websites |
+| 2026-07-09 | Screener layout polish for shared-screen demos: tighter topbar/content padding, wider `max-width`, responsive address grid for narrow viewports |
+| 2026-06-23 | Added Illinois to supported scope; updated banner and state dropdown |
+| 2026-06-23 | Smart address parsing from landing hero — `?q=` param pre-fills split-field form and auto-runs screener |
+| 2026-06-23 | Added Nominatim/OSM fallback geocoder for Census address range gaps |
 
 ---
 

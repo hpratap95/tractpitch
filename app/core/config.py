@@ -6,6 +6,8 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     database_url: str = "postgresql://tractpitch:tractpitch_dev@localhost:5432/tractpitch"
     log_level: str = "INFO"
+    stripe_publishable_key: str = ""
+    stripe_secret_key: str = ""
 
     model_config = SettingsConfigDict(
         env_file=".env",

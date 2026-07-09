@@ -109,24 +109,24 @@
     .topbar {
       background: #fff;
       border-bottom: 1px solid var(--gray-200);
-      padding: 20px 40px;
+      padding: 16px 40px;
     }
 
     .topbar h1 {
-      font-size: 1.5rem;
+      font-size: 1.35rem;
       font-weight: 700;
       color: var(--gray-900);
     }
 
     .topbar p {
-      margin-top: 4px;
-      font-size: 0.9rem;
+      margin-top: 3px;
+      font-size: 0.875rem;
       color: var(--gray-600);
     }
 
     .content {
-      padding: 32px 40px;
-      max-width: 900px;
+      padding: 24px 40px 40px;
+      max-width: 960px;
     }
 
     /* ── Disclaimer ──────────────────────────────────── */
@@ -158,9 +158,16 @@
 
     .address-grid {
       display: grid;
-      grid-template-columns: 2fr 1.5fr 0.6fr 0.8fr;
-      gap: 12px;
+      grid-template-columns: 2fr 1.4fr 0.55fr 0.75fr;
+      gap: 10px;
       margin-bottom: 14px;
+    }
+
+    @media (max-width: 760px) {
+      .address-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+      .field-street { grid-column: 1 / -1; }
     }
 
     .field-group {
@@ -726,6 +733,42 @@
     .hud-badge[data-tip].hud-badge-active::before  { content: "✓"; }
     .hud-badge[data-tip].hud-badge-inactive::before { content: "–"; }
 
+    /* Share / secondary button */
+    .btn-secondary {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 9px 16px;
+      background: #fff;
+      color: var(--gray-700);
+      border: 1.5px solid var(--gray-200);
+      border-radius: 8px;
+      font-size: 0.875rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+      white-space: nowrap;
+    }
+
+    .btn-secondary:hover { background: var(--gray-100); border-color: var(--gray-400); }
+    .btn-secondary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* Legal disclaimer */
+    .legal-disclaimer {
+      margin-top: 28px;
+      padding: 14px 18px;
+      background: var(--gray-50);
+      border: 1px solid var(--gray-200);
+      border-radius: 8px;
+      font-size: 0.775rem;
+      color: var(--gray-600);
+      line-height: 1.55;
+    }
+
+    .legal-disclaimer strong {
+      color: var(--gray-700);
+    }
+
     /* Empty state */
     .empty-state {
       background: #fff;
@@ -942,6 +985,33 @@
     }
   }
 
+  // ─── Share Report ─────────────────────────────────────────────────────────
+  async function shareReport() {
+    const address = buildAddress();
+    if (!address) return;
+    const url = window.location.origin + "/screener?q=" + encodeURIComponent(address);
+    const btn = document.getElementById("share-btn");
+    try {
+      await navigator.clipboard.writeText(url);
+      btn.innerHTML = `
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="20 6 9 17 4 12"/>
+        </svg>
+        Link copied!`;
+      setTimeout(() => {
+        btn.innerHTML = `
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
+            <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+          </svg>
+          Share Report`;
+      }, 2500);
+    } catch (e) {
+      // Clipboard API not available — show a prompt fallback
+      window.prompt("Copy this shareable link:", url);
+    }
+  }
+
   // ─── Render ───────────────────────────────────────────────────────────────
   function grantTypeBadge(type) {
     const t = (type || "").toUpperCase();
@@ -1071,8 +1141,15 @@
           <div>
             <div class="section-label" style="margin-bottom:0">Matched Grants</div>
           </div>
-          <div style="display:flex;align-items:center;gap:12px">
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
             <span class="grants-count-badge">${data.grants_matched} matched</span>
+            <button id="share-btn" class="btn-secondary" onclick="shareReport()">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
+                <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+              </svg>
+              Share Report
+            </button>
             <button id="pdf-btn" class="btn-pdf" onclick="downloadPdf()">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
@@ -1087,7 +1164,11 @@
     }
 
     const fundingHtml = renderFundingHistory(data.funding_history);
-    resultsEl.innerHTML = profileHtml + grantsHtml + fundingHtml;
+    const disclaimerHtml = `
+      <div class="legal-disclaimer">
+        <strong>Research Use Only:</strong> TractPitch screens eligibility based on published ACS 2022 demographic thresholds. Results are for research purposes only and do not constitute a guarantee of program eligibility. Verify current requirements at Grants.gov and agency websites before applying.
+      </div>`;
+    resultsEl.innerHTML = profileHtml + grantsHtml + fundingHtml + disclaimerHtml;
   }
 
   // ─── Federal Funding History ──────────────────────────────────────────────

@@ -888,7 +888,7 @@
           Priority support
         </li>
       </ul>
-      <button type="button" class="btn-pricing-pro" onclick="openWaitlistModal()">Start Free Trial</button>
+      <button type="button" class="btn-pricing-pro" id="pro-cta-btn" onclick="startProCheckout(this)">Start Free Trial</button>
     </div>
 
   </div>
@@ -947,6 +947,25 @@
     const address = document.getElementById("hero-address").value.trim();
     if (!address) return;
     window.location.href = "/screener?q=" + encodeURIComponent(address);
+  }
+
+  async function startProCheckout(btn) {
+    const orig = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = "Loading…";
+    try {
+      const resp = await fetch("/api/v1/subscribe", { method: "POST" });
+      const data = await resp.json();
+      if (resp.ok && data.checkout_url) {
+        window.location.href = data.checkout_url;
+      } else {
+        throw new Error(data.detail || "Could not start checkout. Please try again.");
+      }
+    } catch (err) {
+      alert(err.message);
+      btn.disabled = false;
+      btn.textContent = orig;
+    }
   }
 
   function openWaitlistModal() {
